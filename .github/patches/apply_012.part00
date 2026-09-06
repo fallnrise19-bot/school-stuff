@@ -1,0 +1,132 @@
+from pathlib import Path
+import re
+
+app = Path('app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt')
+build = Path('app/build.gradle.kts')
+text = app.read_text()
+original = text
+
+# Imports needed for the same live Calendar Provider refresh pattern used by Directive.
+import_anchor = 'import android.content.pm.PackageManager\nimport android.provider.OpenableColumns\n'
+import_replacement = '''import android.content.pm.PackageManager
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.CalendarContract
+import android.provider.OpenableColumns
+'''
+if import_anchor not in text:
+    raise SystemExit('Import anchor not found')
+text = text.replace(import_anchor, import_replacement, 1)
+
+runtime_anchor = '''import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+'''
+runtime_replacement = '''import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+'''
+if runtime_anchor not in text:
+    raise SystemExit('Runtime import anchor not found')
+text = text.replace(runtime_anchor, runtime_replacement, 1)
+
+if 'import kotlinx.coroutines.Dispatchers' not in text:
+    time_anchor = 'import java.time.LocalDate\n'
+    text = text.replace(time_anchor, '''import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+''', 1)
+
+# Helpers that use the actual illustrated pieces cropped from the approved mockups.
+helper_marker = '@Composable\nprivate fun HomeScreen'
+helper_block = '''private fun categoryArt(item: SchoolItem): MockupAsset = when {
+    item.title.contains("picture", ignoreCase = true) -> MockupAsset.CAMERA
+    item.category == Category.LIBRARY -> MockupAsset.BOOKS
+    item.category == Category.GYM -> MockupAsset.SHOES
+    item.category == Category.SPIRIT_DAY -> MockupAsset.SHIRT
+    item.category == Category.FOOD_DAY && item.title.contains("sub", ignoreCase = true) -> MockupAsset.SANDWICH
+    item.category == Category.FOOD_DAY -> MockupAsset.PIZZA
+    item.category == Category.HOMEWORK || item.category == Category.BRING_ITEM -> MockupAsset.FOLDER
+    item.category == Category.FORM_DUE -> MockupAsset.DOCUMENT
+    else -> MockupAsset.STAR
+}
+
+@Composable
+private fun HomeMockupHero() {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = SoftBlue)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Everything school. One place.", color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Spacer(Modifier.height(4.dp))
+                Text("The fridge has officially been demoted.", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+            }
+            MockupArtImage(MockupAsset.BACKPACK, modifier = Modifier.size(104.dp), contentDescription = "School backpack")
+        }
+    }
+}
+
+@Composable
+private fun MockupMiniStrip() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        MockupArtImage(MockupAsset.BOOKS, Modifier.size(45.dp), "Books")
+        MockupArtImage(MockupAsset.PIZZA, Modifier.size(45.dp), "Pizza")
+        MockupArtImage(MockupAsset.SHIRT, Modifier.size(45.dp), "Spirit shirt")
+        MockupArtImage(MockupAsset.SANDWICH, Modifier.size(45.dp), "Sub day")
+    }
+}
+
+@Composable
+private fun PapersArtStrip() {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        MockupArtImage(MockupAsset.PALETTE, Modifier.size(58.dp), "Artwork")
+        MockupArtImage(MockupAsset.CAMERA, Modifier.size(52.dp), "Photos")
+        MockupArtImage(MockupAsset.DOCUMENT, Modifier.size(52.dp), "Forms")
+        MockupArtImage(MockupAsset.STAR, Modifier.size(42.dp), "Memories")
+    }
+}
+
+@Composable
+private fun HomeScreen'''
+if helper_marker not in text:
+    raise SystemExit('Home marker not found')
+text = text.replace(helper_marker, helper_block, 1)
+
+# Replace generic category icon in list rows with the actual artwork from the mockups.
+old_row_icon = '''        Icon(categoryIcon(item.category), null, tint = categoryColor(item.category), modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(10.dp))
+'''
+new_row_icon = '''        MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+        Spacer(Modifier.width(8.dp))
+'''
+if old_row_icon not in text:
+    raise SystemExit('SchoolRow icon block not found')
+text = text.replace(old_row_icon, new_row_icon, 1)
+
+# Put the blue backpack artwork on the home screen, as in the mockup.
+home_header = '        item { Header("School Stuff", "Little things. Big school days. ♥", note = "You got this!") }\n'
+if home_header not in text:
+    raise SystemExit('Home header not found')
+text = text.replace(home_header, home_header + '        item { HomeMockupHero() }\n', 1)
+
+# Picture day gets the real camera illustration.
+old_picture_icon = '                        Icon(Icons.Rounded.PhotoCamera, null, tint = SchoolRed, modifier = Modifier.size(32.dp))\n'

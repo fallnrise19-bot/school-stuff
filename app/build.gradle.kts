@@ -1,7 +1,17 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val stableDebugKeystore = rootProject.file("debug.keystore")
+val stableDebugKeystoreB64 = rootProject.file("debug.keystore.b64")
+if (!stableDebugKeystore.exists() && stableDebugKeystoreB64.exists()) {
+    stableDebugKeystore.writeBytes(
+        Base64.getDecoder().decode(stableDebugKeystoreB64.readText().trim())
+    )
 }
 
 android {
@@ -12,8 +22,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.1.5"
     }
 
     buildFeatures {
@@ -25,7 +35,20 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = stableDebugKeystore
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         getByName("release") {
             isMinifyEnabled = false
             proguardFiles(

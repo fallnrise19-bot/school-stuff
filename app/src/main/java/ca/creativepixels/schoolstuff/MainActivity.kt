@@ -10,7 +10,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val vm: SchoolStuffViewModel = viewModel()
-            SchoolStuffAppV2(vm)
+            SchoolStuffApp(vm)
         }
     }
 }

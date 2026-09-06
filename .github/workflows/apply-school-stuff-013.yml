@@ -1,0 +1,50 @@
+name: Apply School Stuff 0.1.3
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/apply-school-stuff-013.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply 0.1.3 verification patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          gradle = Path('app/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 4', text)
+          text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "0.1.3"', text)
+          gradle.write_text(text)
+
+          app = Path('app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt')
+          text = app.read_text()
+          text = text.replace(
+              'Text("School Stuff 0.1.2", color = Ink, fontWeight = FontWeight.Bold)',
+              'Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)'
+          )
+          text = text.replace(
+              'Text("Directive calendar loading fix + the actual illustrated mockup artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)',
+              'Text("Verified build: Directive-style live calendar refresh + the actual illustrated prototype artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)'
+          )
+          app.write_text(text)
+          PY
+
+      - name: Commit 0.1.3
+        run: |
+          git config user.name "fallnrise19-bot"
+          git config user.email "fall.n.rise19@gmail.com"
+          git add app/build.gradle.kts app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt
+          git commit -m "School Stuff 0.1.3 verified build" || exit 0
+          git push

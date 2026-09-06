@@ -1019,8 +1019,8 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("About this build", SchoolGreen) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("School Stuff 0.1.2", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Directive calendar loading fix + the actual illustrated mockup artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                        Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)
+                        Text("Verified build: Directive-style live calendar refresh + the actual illustrated prototype artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Notifications, null, tint = SchoolGreen)
                             Spacer(Modifier.width(8.dp))

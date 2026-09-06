@@ -4,6 +4,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val stableDebugKeystore = rootProject.file("debug.keystore")
+val stableDebugKeystoreB64 = rootProject.file("debug.keystore.b64")
+if (!stableDebugKeystore.exists() && stableDebugKeystoreB64.exists()) {
+    stableDebugKeystore.writeBytes(
+        java.util.Base64.getDecoder().decode(stableDebugKeystoreB64.readText().trim())
+    )
+}
+
 android {
     namespace = "ca.creativepixels.schoolstuff"
     compileSdk = 35
@@ -19,7 +27,19 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = stableDebugKeystore
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

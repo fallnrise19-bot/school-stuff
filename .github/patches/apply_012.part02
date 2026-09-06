@@ -1,0 +1,85 @@
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section("Google Calendar", SchoolBlue) {
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MockupArtImage(MockupAsset.BOOKS, Modifier.size(54.dp), "School calendar")
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "School Stuff reads Google calendars already synced to this phone. Pick only the calendars you want to see.",
+                                color = Ink.copy(alpha = .68f),
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (!calendarPermissionGranted || !repo.hasWritePermission()) {
+                            Button(onClick = {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
+                            }) {
+                                Icon(Icons.Rounded.CalendarMonth, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Connect Calendar")
+                            }
+                        } else {
+                            if (calendarSyncing) {
+                                Text("Loading calendars…", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                            }
+
+                            val selectedVisible = calendars.filter { it.id in selected }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().clickable { calendarListExpanded = !calendarListExpanded },
+                                color = Color.White,
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "Calendars shown in School Stuff · ${selectedVisible.size} selected",
+                                            color = Ink,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        if (selectedVisible.isEmpty()) {
+                                            Text("Tap to choose calendars", color = Ink.copy(alpha = .55f), fontSize = 11.sp)
+                                        } else {
+                                            selectedVisible.take(3).forEach { cal ->
+                                                Text("${cal.displayName} · ${cal.accountName}", color = Ink.copy(alpha = .58f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            if (selectedVisible.size > 3) {
+                                                Text("+${selectedVisible.size - 3} more", color = SchoolBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                    Icon(
+                                        if (calendarListExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                        if (calendarListExpanded) "Collapse calendars" else "Expand calendars",
+                                        tint = Ink.copy(alpha = .62f)
+                                    )
+                                }
+                            }
+
+                            if (calendarListExpanded) {
+                                key(calendarListRevision) {
+                                    calendars.forEach { cal ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                            Checkbox(
+                                                checked = cal.id in selected,
+                                                onCheckedChange = { checked ->
+                                                    selected = if (checked) selected + cal.id else selected - cal.id
+                                                    vm.saveSelectedCalendarIds(selected)
+                                                    if (!checked && defaultId == cal.id) {
+                                                        defaultId = null
+                                                        vm.saveDefaultCalendarId(null)
+                                                    }
+                                                }
+                                            )
+                                            Column(Modifier.weight(1f)) {
+                                                Text(cal.displayName, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(cal.accountName, color = Ink.copy(alpha = .52f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            if (cal.canWrite && cal.id in selected) {
+                                                FilterChip(
+                                                    selected = defaultId == cal.id,
+                                                    onClick = {

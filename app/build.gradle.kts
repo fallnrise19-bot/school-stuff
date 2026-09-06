@@ -25,18 +25,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    signingConfigs {
-        getByName("debug") {
-            storeFile = rootProject.file("keystore/schoolstuff-debug.keystore")
-            storePassword = "schoolstuff-debug"
-            keyAlias = "schoolstuff"
-            keyPassword = "schoolstuff-debug"
-        }
-    }
     buildTypes {
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("debug")
-        }
         getByName("release") {
             isMinifyEnabled = false
             proguardFiles(

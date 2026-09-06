@@ -3,6 +3,10 @@ package ca.creativepixels.schoolstuff
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.CalendarContract
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -74,10 +78,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +107,10 @@ import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -249,13 +261,66 @@ private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Com
     ) {
         ChildBadge(vm.child(item.childId), 38)
         Spacer(Modifier.width(10.dp))
-        Icon(categoryIcon(item.category), null, tint = categoryColor(item.category), modifier = Modifier.size(28.dp))
-        Spacer(Modifier.width(10.dp))
+        MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+        Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text("${vm.childName(item.childId)} • ${item.category}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
         }
         trailing?.invoke()
+    }
+}
+
+private fun categoryArt(item: SchoolItem): MockupAsset = when {
+    item.title.contains("picture", ignoreCase = true) -> MockupAsset.CAMERA
+    item.category == Category.LIBRARY -> MockupAsset.BOOKS
+    item.category == Category.GYM -> MockupAsset.SHOES
+    item.category == Category.SPIRIT_DAY -> MockupAsset.SHIRT
+    item.category == Category.FOOD_DAY && item.title.contains("sub", ignoreCase = true) -> MockupAsset.SANDWICH
+    item.category == Category.FOOD_DAY -> MockupAsset.PIZZA
+    item.category == Category.HOMEWORK || item.category == Category.BRING_ITEM -> MockupAsset.FOLDER
+    item.category == Category.FORM_DUE -> MockupAsset.DOCUMENT
+    else -> MockupAsset.STAR
+}
+
+@Composable
+private fun HomeMockupHero() {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = SoftBlue)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Everything school. One place.", color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Spacer(Modifier.height(4.dp))
+                Text("The fridge has officially been demoted.", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+            }
+            MockupArtImage(MockupAsset.BACKPACK, modifier = Modifier.size(104.dp), contentDescription = "School backpack")
+        }
+    }
+}
+
+@Composable
+private fun MockupMiniStrip() {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        MockupArtImage(MockupAsset.BOOKS, Modifier.size(45.dp), "Books")
+        MockupArtImage(MockupAsset.PIZZA, Modifier.size(45.dp), "Pizza")
+        MockupArtImage(MockupAsset.SHIRT, Modifier.size(45.dp), "Spirit shirt")
+        MockupArtImage(MockupAsset.SANDWICH, Modifier.size(45.dp), "Sub day")
+    }
+}
+
+@Composable
+private fun PapersArtStrip() {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        MockupArtImage(MockupAsset.PALETTE, Modifier.size(58.dp), "Artwork")
+        MockupArtImage(MockupAsset.CAMERA, Modifier.size(52.dp), "Photos")
+        MockupArtImage(MockupAsset.DOCUMENT, Modifier.size(52.dp), "Forms")
+        MockupArtImage(MockupAsset.STAR, Modifier.size(42.dp), "Memories")
     }
 }
 
@@ -271,6 +336,7 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Header("School Stuff", "Little things. Big school days. ♥", note = "You got this!") }
+        item { HomeMockupHero() }
         item {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()),
@@ -295,7 +361,7 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
                     shape = RoundedCornerShape(18.dp)
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.PhotoCamera, null, tint = SchoolRed, modifier = Modifier.size(32.dp))
+                        MockupArtImage(MockupAsset.CAMERA, modifier = Modifier.size(52.dp), contentDescription = "Picture Day")
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Picture Day coming up", color = Ink, fontWeight = FontWeight.Bold)
@@ -479,6 +545,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                     Text(child.teacherName.ifBlank { "Add teacher information" }, color = Ink, fontWeight = FontWeight.SemiBold)
                     if (child.room.isNotBlank()) Text("Room ${child.room}", color = Ink.copy(alpha = .6f))
                     if (child.schoolName.isNotBlank()) Text(child.schoolName, color = Ink.copy(alpha = .6f))
+                    Spacer(Modifier.height(10.dp))
+                    MockupMiniStrip()
                 }
             }
         }
@@ -533,6 +601,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("Papers & Memories", SchoolPink) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PapersArtStrip()
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             DocumentType.all.forEach { type ->
                                 FilterChip(selected = selectedDocType == type, onClick = { selectedDocType = type }, label = { Text(type) })
@@ -718,19 +787,98 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
 private fun SettingsScreen(vm: SchoolStuffViewModel) {
     val context = LocalContext.current
     val repo = remember { CalendarProviderRepository(context) }
+    val scope = rememberCoroutineScope()
+    var calendarPermissionGranted by remember { mutableStateOf(repo.hasReadPermission()) }
     var calendars by remember { mutableStateOf<List<DeviceCalendar>>(emptyList()) }
+    var calendarListRevision by remember { mutableIntStateOf(0) }
+    var calendarListExpanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(vm.selectedCalendarIds()) }
     var defaultId by remember { mutableStateOf(vm.defaultCalendarId()) }
     var message by remember { mutableStateOf("") }
+    var calendarSyncing by remember { mutableStateOf(false) }
+
+    suspend fun refreshCalendarsOnce(): List<DeviceCalendar> {
+        val granted = repo.hasReadPermission()
+        calendarPermissionGranted = granted
+        val result = if (granted) {
+            withContext(Dispatchers.IO) {
+                repo.queryCalendars()
+                    .filter { it.accountType == "com.google" }
+                    .sortedWith(compareBy<DeviceCalendar> { it.accountName.lowercase() }.thenBy { it.displayName.lowercase() })
+            }
+        } else emptyList()
+        calendars = result.toList()
+        calendarListRevision++
+        message = when {
+            !granted -> "Google Calendar is not connected."
+            result.isEmpty() -> "Connected, but Android has not exposed any visible Google calendars yet."
+            else -> "Connected. ${result.size} calendar${if (result.size == 1) "" else "s"} available."
+        }
+        return result
+    }
+
+    suspend fun refreshCalendarsWithRetry() {
+        if (!repo.hasReadPermission()) {
+            refreshCalendarsOnce()
+            return
+        }
+        val waits = listOf(0L, 200L, 400L, 700L, 1000L, 1500L, 2000L, 2500L)
+        for (wait in waits) {
+            if (wait > 0) delay(wait)
+            if (refreshCalendarsOnce().isNotEmpty()) return
+        }
+        message = "Calendar access is connected, but Android has not exposed the list yet. Keep this screen open and tap Refresh calendars."
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        if (result[Manifest.permission.READ_CALENDAR] == true) calendars = repo.queryCalendars()
+        val readGranted = result[Manifest.permission.READ_CALENDAR] == true || repo.hasReadPermission()
+        calendarPermissionGranted = readGranted
+        if (readGranted) {
+            message = "Calendar access granted. Loading calendars…"
+            calendarSyncing = true
+            scope.launch {
+                refreshCalendarsWithRetry()
+                calendarSyncing = false
+            }
+        } else {
+            calendars = emptyList()
+            calendarListRevision++
+            message = "Calendar permission was not granted."
+        }
     }
 
-    LaunchedEffect(Unit) {
-        if (repo.hasReadPermission()) calendars = repo.queryCalendars()
+    // Directive fix: this observable permission state + repeated reads keeps the Settings
+    // screen live while Android publishes Calendar Provider rows after permission/resume.
+    LaunchedEffect(calendarPermissionGranted) {
+        if (calendarPermissionGranted) {
+            repeat(12) { attempt ->
+                val result = refreshCalendarsOnce()
+                if (result.isNotEmpty()) return@LaunchedEffect
+                delay(if (attempt < 4) 400L else 900L)
+            }
+        }
+    }
+
+    // Directive also listens to the Calendar Provider itself, so a late sync redraws
+    // the list without making the user leave Settings and come back.
+    DisposableEffect(calendarPermissionGranted) {
+        if (!calendarPermissionGranted) return@DisposableEffect onDispose { }
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                super.onChange(selfChange)
+                scope.launch { refreshCalendarsWithRetry() }
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            CalendarContract.Calendars.CONTENT_URI,
+            true,
+            observer
+        )
+        onDispose {
+            runCatching { context.contentResolver.unregisterContentObserver(observer) }
+        }
     }
 
     LazyColumn(
@@ -741,10 +889,19 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
         item { Header("Settings", "Calendar connection and the boring useful bits. ♥", note = "No account required") }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Google / Android Calendar", SchoolBlue) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("School Stuff reads calendars already synced to this phone. You choose which ones it may import and where it writes School Stuff events.", color = Ink.copy(alpha = .68f), fontSize = 13.sp)
-                        if (!repo.hasReadPermission() || !repo.hasWritePermission()) {
+                Section("Google Calendar", SchoolBlue) {
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MockupArtImage(MockupAsset.BOOKS, Modifier.size(54.dp), "School calendar")
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "School Stuff reads Google calendars already synced to this phone. Pick only the calendars you want to see.",
+                                color = Ink.copy(alpha = .68f),
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (!calendarPermissionGranted || !repo.hasWritePermission()) {
                             Button(onClick = {
                                 permissionLauncher.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
                             }) {
@@ -753,46 +910,103 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
                                 Text("Connect Calendar")
                             }
                         } else {
-                            calendars.forEach { cal ->
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Checkbox(
-                                        checked = cal.id in selected,
-                                        onCheckedChange = { checked ->
-                                            selected = if (checked) selected + cal.id else selected - cal.id
-                                            vm.saveSelectedCalendarIds(selected)
-                                        }
-                                    )
+                            if (calendarSyncing) {
+                                Text("Loading calendars…", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                            }
+
+                            val selectedVisible = calendars.filter { it.id in selected }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().clickable { calendarListExpanded = !calendarListExpanded },
+                                color = Color.White,
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Column(Modifier.weight(1f)) {
-                                        Text(cal.displayName, color = Ink, fontWeight = FontWeight.SemiBold)
-                                        Text(cal.accountName, color = Ink.copy(alpha = .52f), fontSize = 11.sp)
-                                    }
-                                    if (cal.canWrite) {
-                                        FilterChip(
-                                            selected = defaultId == cal.id,
-                                            onClick = {
-                                                defaultId = cal.id
-                                                vm.saveDefaultCalendarId(cal.id)
-                                            },
-                                            label = { Text(if (defaultId == cal.id) "Writes here" else "Use") }
+                                        Text(
+                                            "Calendars shown in School Stuff · ${selectedVisible.size} selected",
+                                            color = Ink,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
                                         )
+                                        if (selectedVisible.isEmpty()) {
+                                            Text("Tap to choose calendars", color = Ink.copy(alpha = .55f), fontSize = 11.sp)
+                                        } else {
+                                            selectedVisible.take(3).forEach { cal ->
+                                                Text("${cal.displayName} · ${cal.accountName}", color = Ink.copy(alpha = .58f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            if (selectedVisible.size > 3) {
+                                                Text("+${selectedVisible.size - 3} more", color = SchoolBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                    Icon(
+                                        if (calendarListExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                        if (calendarListExpanded) "Collapse calendars" else "Expand calendars",
+                                        tint = Ink.copy(alpha = .62f)
+                                    )
+                                }
+                            }
+
+                            if (calendarListExpanded) {
+                                key(calendarListRevision) {
+                                    calendars.forEach { cal ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                            Checkbox(
+                                                checked = cal.id in selected,
+                                                onCheckedChange = { checked ->
+                                                    selected = if (checked) selected + cal.id else selected - cal.id
+                                                    vm.saveSelectedCalendarIds(selected)
+                                                    if (!checked && defaultId == cal.id) {
+                                                        defaultId = null
+                                                        vm.saveDefaultCalendarId(null)
+                                                    }
+                                                }
+                                            )
+                                            Column(Modifier.weight(1f)) {
+                                                Text(cal.displayName, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                Text(cal.accountName, color = Ink.copy(alpha = .52f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            if (cal.canWrite && cal.id in selected) {
+                                                FilterChip(
+                                                    selected = defaultId == cal.id,
+                                                    onClick = {
+                                                        defaultId = cal.id
+                                                        vm.saveDefaultCalendarId(cal.id)
+                                                    },
+                                                    label = { Text(if (defaultId == cal.id) "Writes here" else "Use") }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
+
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {
+                                    calendarSyncing = true
+                                    scope.launch {
+                                        refreshCalendarsWithRetry()
+                                        calendarSyncing = false
+                                    }
+                                }) { Text("Refresh calendars") }
                                 OutlinedButton(onClick = {
                                     val imported = vm.importCalendarEvents(repo.importInstances(selected))
                                     message = "$imported new calendar event${if (imported == 1) "" else "s"} imported."
                                 }, enabled = selected.isNotEmpty()) { Text("Import") }
-                                Button(onClick = {
-                                    val target = defaultId
-                                    if (target == null) {
-                                        message = "Choose a calendar to write to first."
-                                    } else {
-                                        val count = vm.items.count { repo.upsertSchoolItem(target, it) }
-                                        message = "$count School Stuff events synced."
-                                    }
-                                }, enabled = defaultId != null) { Text("Sync Out") }
                             }
+                            Button(onClick = {
+                                val target = defaultId
+                                if (target == null) {
+                                    message = "Choose a selected calendar as the write destination first."
+                                } else {
+                                    val count = vm.items.count { repo.upsertSchoolItem(target, it) }
+                                    message = "$count School Stuff events synced."
+                                }
+                            }, enabled = defaultId != null) { Text("Sync School Stuff Out") }
+
                             if (message.isNotBlank()) Text(message, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
                         }
                     }
@@ -803,8 +1017,8 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("About this build", SchoolGreen) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("School Stuff 0.1.0", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Local-first prototype. No cloud account, subscription or AI scanning yet.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                        Text("School Stuff 0.1.2", color = Ink, fontWeight = FontWeight.Bold)
+                        Text("Directive calendar loading fix + the actual illustrated mockup artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Notifications, null, tint = SchoolGreen)
                             Spacer(Modifier.width(8.dp))

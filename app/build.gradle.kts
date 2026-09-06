@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -8,7 +10,7 @@ val stableDebugKeystore = rootProject.file("debug.keystore")
 val stableDebugKeystoreB64 = rootProject.file("debug.keystore.b64")
 if (!stableDebugKeystore.exists() && stableDebugKeystoreB64.exists()) {
     stableDebugKeystore.writeBytes(
-        java.util.Base64.getDecoder().decode(stableDebugKeystoreB64.readText().trim())
+        Base64.getDecoder().decode(stableDebugKeystoreB64.readText().trim())
     )
 }
 

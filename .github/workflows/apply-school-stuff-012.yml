@@ -1,0 +1,36 @@
+name: Apply School Stuff 0.1.2
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/apply-school-stuff-012.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble mockup artwork source
+        run: |
+          cat .github/patches/mockup_art.part* > app/src/main/java/ca/creativepixels/schoolstuff/MockupArt.kt
+
+      - name: Assemble and apply 0.1.2 patch
+        run: |
+          cat .github/patches/apply_012.part* > /tmp/apply_012.py
+          python /tmp/apply_012.py
+
+      - name: Commit School Stuff 0.1.2
+        run: |
+          git config user.name "fallnrise19-bot"
+          git config user.email "fall.n.rise19@gmail.com"
+          git add app/src/main/java/ca/creativepixels/schoolstuff/MockupArt.kt \
+                  app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt \
+                  app/build.gradle.kts
+          git commit -m "School Stuff 0.1.2: Directive calendar fix and mockup art"
+          git push

@@ -1,0 +1,132 @@
+new_picture_icon = '                        MockupArtImage(MockupAsset.CAMERA, modifier = Modifier.size(52.dp), contentDescription = "Picture Day")\n'
+if old_picture_icon not in text:
+    raise SystemExit('Picture icon not found')
+text = text.replace(old_picture_icon, new_picture_icon, 1)
+
+# Add a visual routine strip to each child profile.
+child_school_line = '                    if (child.schoolName.isNotBlank()) Text(child.schoolName, color = Ink.copy(alpha = .6f))\n'
+if child_school_line not in text:
+    raise SystemExit('Child school line not found')
+text = text.replace(child_school_line, child_school_line + '''                    Spacer(Modifier.height(10.dp))
+                    MockupMiniStrip()
+''', 1)
+
+# Add the same illustrated paper/memory personality shown in the mockups.
+papers_column = '''                Section("Papers & Memories", SchoolPink) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+'''
+if papers_column not in text:
+    raise SystemExit('Papers section not found')
+text = text.replace(papers_column, papers_column + '''                        PapersArtStrip()
+''', 1)
+
+# Replace the Settings screen with Directive's proven live calendar refresh behavior.
+settings_start = text.find('@Composable\nprivate fun SettingsScreen(vm: SchoolStuffViewModel) {')
+if settings_start < 0:
+    raise SystemExit('SettingsScreen start not found')
+
+settings = r'''@Composable
+private fun SettingsScreen(vm: SchoolStuffViewModel) {
+    val context = LocalContext.current
+    val repo = remember { CalendarProviderRepository(context) }
+    val scope = rememberCoroutineScope()
+    var calendarPermissionGranted by remember { mutableStateOf(repo.hasReadPermission()) }
+    var calendars by remember { mutableStateOf<List<DeviceCalendar>>(emptyList()) }
+    var calendarListRevision by remember { mutableIntStateOf(0) }
+    var calendarListExpanded by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(vm.selectedCalendarIds()) }
+    var defaultId by remember { mutableStateOf(vm.defaultCalendarId()) }
+    var message by remember { mutableStateOf("") }
+    var calendarSyncing by remember { mutableStateOf(false) }
+
+    suspend fun refreshCalendarsOnce(): List<DeviceCalendar> {
+        val granted = repo.hasReadPermission()
+        calendarPermissionGranted = granted
+        val result = if (granted) {
+            withContext(Dispatchers.IO) {
+                repo.queryCalendars()
+                    .filter { it.accountType == "com.google" }
+                    .sortedWith(compareBy<DeviceCalendar> { it.accountName.lowercase() }.thenBy { it.displayName.lowercase() })
+            }
+        } else emptyList()
+        calendars = result.toList()
+        calendarListRevision++
+        message = when {
+            !granted -> "Google Calendar is not connected."
+            result.isEmpty() -> "Connected, but Android has not exposed any visible Google calendars yet."
+            else -> "Connected. ${result.size} calendar${if (result.size == 1) "" else "s"} available."
+        }
+        return result
+    }
+
+    suspend fun refreshCalendarsWithRetry() {
+        if (!repo.hasReadPermission()) {
+            refreshCalendarsOnce()
+            return
+        }
+        val waits = listOf(0L, 200L, 400L, 700L, 1000L, 1500L, 2000L, 2500L)
+        for (wait in waits) {
+            if (wait > 0) delay(wait)
+            if (refreshCalendarsOnce().isNotEmpty()) return
+        }
+        message = "Calendar access is connected, but Android has not exposed the list yet. Keep this screen open and tap Refresh calendars."
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val readGranted = result[Manifest.permission.READ_CALENDAR] == true || repo.hasReadPermission()
+        calendarPermissionGranted = readGranted
+        if (readGranted) {
+            message = "Calendar access granted. Loading calendars…"
+            calendarSyncing = true
+            scope.launch {
+                refreshCalendarsWithRetry()
+                calendarSyncing = false
+            }
+        } else {
+            calendars = emptyList()
+            calendarListRevision++
+            message = "Calendar permission was not granted."
+        }
+    }
+
+    // Directive fix: this observable permission state + repeated reads keeps the Settings
+    // screen live while Android publishes Calendar Provider rows after permission/resume.
+    LaunchedEffect(calendarPermissionGranted) {
+        if (calendarPermissionGranted) {
+            repeat(12) { attempt ->
+                val result = refreshCalendarsOnce()
+                if (result.isNotEmpty()) return@LaunchedEffect
+                delay(if (attempt < 4) 400L else 900L)
+            }
+        }
+    }
+
+    // Directive also listens to the Calendar Provider itself, so a late sync redraws
+    // the list without making the user leave Settings and come back.
+    DisposableEffect(calendarPermissionGranted) {
+        if (!calendarPermissionGranted) return@DisposableEffect onDispose { }
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                super.onChange(selfChange)
+                scope.launch { refreshCalendarsWithRetry() }
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            CalendarContract.Calendars.CONTENT_URI,
+            true,
+            observer
+        )
+        onDispose {
+            runCatching { context.contentResolver.unregisterContentObserver(observer) }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item { Header("Settings", "Calendar connection and the boring useful bits. ♥", note = "No account required") }
+        item {

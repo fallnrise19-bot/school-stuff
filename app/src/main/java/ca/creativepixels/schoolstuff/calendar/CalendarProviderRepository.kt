@@ -28,37 +28,52 @@ class CalendarProviderRepository(private val context: Context) {
 
     fun queryCalendars(): List<DeviceCalendar> {
         if (!hasReadPermission()) return emptyList()
+
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
             CalendarContract.Calendars.ACCOUNT_NAME,
             CalendarContract.Calendars.ACCOUNT_TYPE,
+            CalendarContract.Calendars.IS_PRIMARY,
+            CalendarContract.Calendars.VISIBLE,
             CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
         )
+
         val result = mutableListOf<DeviceCalendar>()
+        val selection =
+            "${CalendarContract.Calendars.VISIBLE}=1 AND ${CalendarContract.Calendars.ACCOUNT_TYPE}=?"
+        val selectionArgs = arrayOf("com.google")
+        val sortOrder =
+            "${CalendarContract.Calendars.IS_PRIMARY} DESC, " +
+                "${CalendarContract.Calendars.CALENDAR_DISPLAY_NAME} COLLATE NOCASE"
+
         resolver.query(
             CalendarContract.Calendars.CONTENT_URI,
             projection,
-            "${CalendarContract.Calendars.VISIBLE}=1",
-            null,
-            "${CalendarContract.Calendars.ACCOUNT_NAME}, ${CalendarContract.Calendars.CALENDAR_DISPLAY_NAME}"
+            selection,
+            selectionArgs,
+            sortOrder
         )?.use { cursor ->
             val idI = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
             val nameI = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
             val accountI = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)
             val typeI = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_TYPE)
             val accessI = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
+
             while (cursor.moveToNext()) {
                 val access = cursor.getInt(accessI)
                 result += DeviceCalendar(
                     id = cursor.getLong(idI),
-                    displayName = cursor.getString(nameI) ?: "Calendar",
-                    accountName = cursor.getString(accountI) ?: "",
-                    accountType = cursor.getString(typeI) ?: "",
+                    displayName = cursor.getString(nameI)
+                        .orEmpty()
+                        .ifBlank { "Google Calendar" },
+                    accountName = cursor.getString(accountI).orEmpty(),
+                    accountType = cursor.getString(typeI).orEmpty(),
                     canWrite = access >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR
                 )
             }
         }
+
         return result
     }
 

@@ -1,0 +1,47 @@
+package ca.creativepixels.schoolstuff.data
+
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
+class LocalStore(context: Context) {
+    private val prefs = context.getSharedPreferences("school_stuff_store", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    fun loadChildren(): List<ChildProfile> = readList("children")
+    fun saveChildren(value: List<ChildProfile>) = writeList("children", value)
+
+    fun loadItems(): List<SchoolItem> = readList("items")
+    fun saveItems(value: List<SchoolItem>) = writeList("items", value)
+
+    fun loadDocuments(): List<SchoolDocument> = readList("documents")
+    fun saveDocuments(value: List<SchoolDocument>) = writeList("documents", value)
+
+    fun hasSeeded(): Boolean = prefs.getBoolean("seeded", false)
+    fun markSeeded() = prefs.edit().putBoolean("seeded", true).apply()
+
+    fun getSelectedCalendarIds(): Set<Long> =
+        prefs.getStringSet("calendar_ids", emptySet())?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
+
+    fun setSelectedCalendarIds(ids: Set<Long>) =
+        prefs.edit().putStringSet("calendar_ids", ids.map { it.toString() }.toSet()).apply()
+
+    fun getDefaultCalendarId(): Long? = prefs.getLong("default_calendar_id", -1L).takeIf { it >= 0L }
+    fun setDefaultCalendarId(id: Long?) {
+        val editor = prefs.edit()
+        if (id == null) editor.remove("default_calendar_id") else editor.putLong("default_calendar_id", id)
+        editor.apply()
+    }
+
+    private inline fun <reified T> readList(key: String): List<T> {
+        val raw = prefs.getString(key, null) ?: return emptyList()
+        return runCatching {
+            val type = object : TypeToken<List<T>>() {}.type
+            gson.fromJson<List<T>>(raw, type) ?: emptyList()
+        }.getOrElse { emptyList() }
+    }
+
+    private fun <T> writeList(key: String, value: List<T>) {
+        prefs.edit().putString(key, gson.toJson(value)).apply()
+    }
+}

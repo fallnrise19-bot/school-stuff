@@ -1,0 +1,37 @@
+name: Fix School Stuff 0.1.2 Imports
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/fix-school-stuff-012-imports.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add expand/collapse icon imports
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt')
+          s = p.read_text()
+          anchor = 'import androidx.compose.material.icons.rounded.Event\n'
+          addition = anchor + 'import androidx.compose.material.icons.rounded.ExpandLess\nimport androidx.compose.material.icons.rounded.ExpandMore\n'
+          if 'import androidx.compose.material.icons.rounded.ExpandLess' not in s:
+              if anchor not in s:
+                  raise SystemExit('Icon import anchor not found')
+              s = s.replace(anchor, addition, 1)
+              p.write_text(s)
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "fallnrise19-bot"
+          git config user.email "fall.n.rise19@gmail.com"
+          git add app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt
+          git commit -m "Fix School Stuff 0.1.2 expand icon imports"
+          git push

@@ -1,11 +1,13 @@
 package ca.creativepixels.schoolstuff
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,8 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -41,7 +41,6 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Checkroom
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -54,10 +53,12 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalPizza
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -65,9 +66,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -106,8 +104,10 @@ import ca.creativepixels.schoolstuff.calendar.CalendarProviderRepository
 import ca.creativepixels.schoolstuff.data.Category
 import ca.creativepixels.schoolstuff.data.ChildProfile
 import ca.creativepixels.schoolstuff.data.DeviceCalendar
+import ca.creativepixels.schoolstuff.data.DocumentType
 import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
+import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -125,16 +125,16 @@ private enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-internal fun SchoolStuffApp(vm: SchoolStuffViewModel, navigator: SchoolStuffNavigator) {
+fun SchoolStuffApp(vm: SchoolStuffViewModel) {
     SchoolStuffTheme {
         var tab by remember { mutableStateOf(MainTab.HOME) }
-        val destination = navigator.currentDestination
+        var childPage by remember { mutableStateOf<String?>(null) }
+        var addingThing by remember { mutableStateOf(false) }
 
         Scaffold(
             containerColor = Paper,
-            contentWindowInsets = WindowInsets.safeContent,
             bottomBar = {
-                if (destination == SchoolStuffDestination.Main) {
+                if (childPage == null && !addingThing) {
                     NavigationBar(containerColor = Color.White) {
                         MainTab.entries.forEach { item ->
                             NavigationBarItem(
@@ -149,29 +149,13 @@ internal fun SchoolStuffApp(vm: SchoolStuffViewModel, navigator: SchoolStuffNavi
             }
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
-                when (destination) {
-                    SchoolStuffDestination.AddThing -> AddThingScreen(
-                        vm,
-                        onBack = { navigator.navigateBack() }
-                    )
-                    is SchoolStuffDestination.Child -> ChildScreen(
-                        vm,
-                        destination.childId,
-                        onBack = { navigator.navigateBack() },
-                        onAddThing = navigator::openAddThing,
-                        onOpenGallery = { navigator.openGallery(destination.childId) }
-                    )
-                    is SchoolStuffDestination.Gallery -> DocumentGalleryScreen(
-                        vm = vm,
-                        childId = destination.childId,
-                        onBack = { navigator.navigateBack() }
-                    )
-                    SchoolStuffDestination.Main -> when (tab) {
-                        MainTab.HOME -> HomeScreen(vm, onAdd = navigator::openAddThing, onChild = navigator::openChild)
-                        MainTab.CALENDAR -> CalendarScreen(vm)
-                        MainTab.KIDS -> KidsScreen(vm, onChild = navigator::openChild)
-                        MainTab.SETTINGS -> SettingsScreen(vm)
-                    }
+                when {
+                    addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
+                    childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })
+                    tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
+                    tab == MainTab.CALENDAR -> CalendarScreen(vm)
+                    tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
+                    else -> SettingsScreen(vm)
                 }
             }
         }
@@ -279,16 +263,7 @@ private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Com
     ) {
         ChildBadge(vm.child(item.childId), 38)
         Spacer(Modifier.width(10.dp))
-        val itemEmoji = item.emoji.orEmpty()
-        if (itemEmoji.isNotBlank()) {
-            Surface(color = SoftYellow, shape = RoundedCornerShape(12.dp)) {
-                Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
-                    Text(itemEmoji, fontSize = 23.sp)
-                }
-            }
-        } else {
-            MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
-        }
+        MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -528,15 +503,23 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
 }
 
 @Composable
-private fun ChildScreen(
-    vm: SchoolStuffViewModel,
-    childId: String,
-    onBack: () -> Unit,
-    onAddThing: () -> Unit,
-    onOpenGallery: () -> Unit
-) {
+private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () -> Unit, onAddThing: () -> Unit) {
     val child = vm.child(childId) ?: return
+    val context = LocalContext.current
+    var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
     var editing by remember { mutableStateOf(false) }
+
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val name = runCatching {
+                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            }.getOrNull() ?: "School file"
+            vm.addDocument(SchoolDocument(childId = childId, title = name, type = selectedDocType, uri = uri.toString()))
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -602,48 +585,6 @@ private fun ChildScreen(
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Transportation", SchoolGreen) {
-                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        val transportationType = nullableString(child.transportationType)
-                        val busNumber = nullableString(child.busNumber)
-                        val driverName = nullableString(child.transportDriverName)
-                        val licensePlate = nullableString(child.transportLicensePlate)
-                        val pickupInfo = nullableString(child.pickupInfo)
-                        val dropOffInfo = nullableString(child.dropOffInfo)
-                        val transportationNotes = nullableString(child.transportationNotes)
-                        val hasTransportInfo = listOf(
-                            transportationType,
-                            busNumber,
-                            driverName,
-                            licensePlate,
-                            pickupInfo,
-                            dropOffInfo,
-                            transportationNotes
-                        ).any { it.isNotBlank() }
-
-                        if (!hasTransportInfo) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolGreen)
-                                Spacer(Modifier.width(8.dp))
-                                Text("No transportation details added yet.", color = Ink.copy(alpha = .62f))
-                            }
-                        } else {
-                            if (transportationType.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Type", transportationType)
-                            if (busNumber.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Bus / route", busNumber)
-                            if (driverName.isNotBlank()) InfoLine(Icons.Rounded.Person, "Driver", driverName)
-                            if (licensePlate.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Plate", licensePlate)
-                            if (pickupInfo.isNotBlank()) InfoLine(Icons.Rounded.Home, "Pickup", pickupInfo)
-                            if (dropOffInfo.isNotBlank()) InfoLine(Icons.Rounded.School, "Drop-off", dropOffInfo)
-                            if (transportationNotes.isNotBlank()) {
-                                Text("Note: $transportationNotes", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("Homework & Forms", SchoolYellow) {
                     Column {
                         val tasks = vm.items.filter { it.childId == childId && it.category in listOf(Category.HOMEWORK, Category.FORM_DUE, Category.BRING_ITEM) }
@@ -663,30 +604,24 @@ private fun ChildScreen(
                 Section("Papers & Memories", SchoolPink) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         PapersArtStrip()
-                        val childDocs = vm.documents.filter { it.childId == childId }
-                        if (childDocs.isEmpty()) {
-                            Text(
-                                "Save artwork, report cards, photos and school forms here.",
-                                color = Ink.copy(alpha = .58f),
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
-                        } else {
-                            val imageCount = childDocs.count { doc ->
-                                val lower = doc.title.lowercase()
-                                lower.endsWith(".png") || lower.endsWith(".jpg") ||
-                                    lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".gif")
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            DocumentType.all.forEach { type ->
+                                FilterChip(selected = selectedDocType == type, onClick = { selectedDocType = type }, label = { Text(type) })
                             }
-                            Text(
-                                "${childDocs.size} saved item${if (childDocs.size == 1) "" else "s"}" +
-                                    if (imageCount > 0) " • $imageCount image${if (imageCount == 1) "" else "s"}" else "",
-                                color = Ink.copy(alpha = .65f),
-                                fontSize = 13.sp
-                            )
                         }
-                        OutlinedButton(onClick = onOpenGallery) {
-                            Icon(Icons.Rounded.PhotoCamera, null)
+                        val docs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
+                        docs.forEach { doc ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                                Icon(documentIcon(doc.type), null, tint = SchoolBlue)
+                                Spacer(Modifier.width(10.dp))
+                                Text(doc.title, color = Ink, modifier = Modifier.weight(1f), maxLines = 2)
+                                TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text("Remove") }
+                            }
+                        }
+                        OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/*", "application/pdf")) }) {
+                            Icon(Icons.Rounded.UploadFile, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(if (childDocs.isEmpty()) "Open Gallery & Add" else "Open Gallery")
+                            Text("Add Photo or File")
                         }
                     }
                 }
@@ -699,9 +634,6 @@ private fun ChildScreen(
     }
 }
 
-// Gson can surface null from legacy JSON even for a Kotlin property declared non-null.
-private fun nullableString(value: String?): String = value.orEmpty()
-
 @Composable
 private fun InfoLine(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -710,6 +642,13 @@ private fun InfoLine(icon: ImageVector, label: String, value: String) {
         Text("$label:", color = Ink.copy(alpha = .62f), fontSize = 13.sp, modifier = Modifier.width(112.dp))
         Text(value, color = Ink, fontSize = 13.sp, modifier = Modifier.weight(1f))
     }
+}
+
+private fun documentIcon(type: String): ImageVector = when (type) {
+    DocumentType.REPORT_CARD -> Icons.Rounded.Star
+    DocumentType.ARTWORK -> Icons.Rounded.Palette
+    DocumentType.PHOTO -> Icons.Rounded.PhotoCamera
+    else -> Icons.Rounded.Description
 }
 
 @Composable
@@ -722,14 +661,6 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
     var school by remember { mutableStateOf(child.schoolName) }
     var schoolPhone by remember { mutableStateOf(child.schoolPhone) }
     var notes by remember { mutableStateOf(child.specialNotes) }
-    var transportationType by remember { mutableStateOf(child.transportationType) }
-    var busNumber by remember { mutableStateOf(child.busNumber) }
-    var transportDriverName by remember { mutableStateOf(child.transportDriverName) }
-    var transportLicensePlate by remember { mutableStateOf(child.transportLicensePlate) }
-    var pickupInfo by remember { mutableStateOf(child.pickupInfo) }
-    var dropOffInfo by remember { mutableStateOf(child.dropOffInfo) }
-    var transportationNotes by remember { mutableStateOf(child.transportationNotes) }
-    val transportationTypes = listOf("School Bus", "Parent / Caregiver", "Walk", "Other")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -743,64 +674,12 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
                 item { OutlinedTextField(room, { room = it }, label = { Text("Room") }, singleLine = true) }
                 item { OutlinedTextField(school, { school = it }, label = { Text("School") }, singleLine = true) }
                 item { OutlinedTextField(schoolPhone, { schoolPhone = it }, label = { Text("School phone") }, singleLine = true) }
-                item {
-                    Text("Transportation", color = Ink, fontWeight = FontWeight.Bold)
-                }
-                item {
-                    Row(
-                        Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        FilterChip(
-                            selected = transportationType.isBlank(),
-                            onClick = { transportationType = "" },
-                            label = { Text("Not set") }
-                        )
-                        transportationTypes.forEach { type ->
-                            FilterChip(
-                                selected = transportationType == type,
-                                onClick = { transportationType = type },
-                                label = { Text(type) }
-                            )
-                        }
-                    }
-                }
-                if (transportationType == "School Bus") {
-                    item { OutlinedTextField(busNumber, { busNumber = it }, label = { Text("Bus / route number") }, singleLine = true) }
-                    item { OutlinedTextField(transportDriverName, { transportDriverName = it }, label = { Text("Driver name") }, singleLine = true) }
-                    item { OutlinedTextField(transportLicensePlate, { transportLicensePlate = it }, label = { Text("Licence plate") }, singleLine = true) }
-                }
-                if (transportationType == "Parent / Caregiver" || transportationType == "Other") {
-                    item { OutlinedTextField(transportDriverName, { transportDriverName = it }, label = { Text("Driver / caregiver") }, singleLine = true) }
-                    item { OutlinedTextField(transportLicensePlate, { transportLicensePlate = it }, label = { Text("Vehicle / licence plate") }, singleLine = true) }
-                }
-                if (transportationType.isNotBlank()) {
-                    item { OutlinedTextField(pickupInfo, { pickupInfo = it }, label = { Text("Pickup info") }, placeholder = { Text("Time, stop, location…") }) }
-                    item { OutlinedTextField(dropOffInfo, { dropOffInfo = it }, label = { Text("Drop-off info") }, placeholder = { Text("Time, stop, location…") }) }
-                    item { OutlinedTextField(transportationNotes, { transportationNotes = it }, label = { Text("Transportation notes") }) }
-                }
                 item { OutlinedTextField(notes, { notes = it }, label = { Text("Special notes") }) }
             }
         },
         confirmButton = {
             Button(onClick = {
-                onSave(child.copy(
-                    grade = grade,
-                    teacherName = teacher,
-                    teacherEmail = email,
-                    classroomPhone = phone,
-                    room = room,
-                    schoolName = school,
-                    schoolPhone = schoolPhone,
-                    transportationType = transportationType,
-                    busNumber = busNumber,
-                    transportDriverName = transportDriverName,
-                    transportLicensePlate = transportLicensePlate,
-                    pickupInfo = pickupInfo,
-                    dropOffInfo = dropOffInfo,
-                    transportationNotes = transportationNotes,
-                    specialNotes = notes
-                ))
+                onSave(child.copy(grade = grade, teacherName = teacher, teacherEmail = email, classroomPhone = phone, room = room, schoolName = school, schoolPhone = schoolPhone, specialNotes = notes))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
@@ -818,20 +697,6 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
     var reminder by remember { mutableStateOf(Reminder.NIGHT_BEFORE) }
     var notes by remember { mutableStateOf("") }
     var needsHome by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    val customCategoryOption = "__CUSTOM__"
-    var categoryMenuExpanded by remember { mutableStateOf(false) }
-    var customCategory by remember { mutableStateOf("") }
-    var selectedEmoji by remember { mutableStateOf("") }
-    var showEmojiPicker by remember { mutableStateOf(false) }
-    val emojiChoices = listOf(
-        "🎒", "📚", "✏️", "📝", "📄",
-        "🍕", "🥪", "🍎", "🥛", "🧁",
-        "⚽", "🏀", "🏃", "👟", "🏊",
-        "🎨", "🎭", "🎵", "📷", "⭐",
-        "🚌", "🏫", "🔬", "💻", "🧪",
-        "👕", "🎉", "📌", "⏰", "❤️"
-    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -850,84 +715,16 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 }
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("What's the school thing?") }, singleLine = true)
                 Text("Category", color = Ink, fontWeight = FontWeight.Bold)
-                ExposedDropdownMenuBox(
-                    expanded = categoryMenuExpanded,
-                    onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = if (category == customCategoryOption) "Custom…" else category,
-                        onValueChange = { },
-                        readOnly = true,
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded) },
-                        singleLine = true
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryMenuExpanded,
-                        onDismissRequest = { categoryMenuExpanded = false }
-                    ) {
-                        Category.all.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat) },
-                                leadingIcon = { Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                onClick = {
-                                    category = cat
-                                    categoryMenuExpanded = false
-                                }
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Custom…") },
-                            leadingIcon = { Text("✨", fontSize = 20.sp) },
-                            onClick = {
-                                category = customCategoryOption
-                                categoryMenuExpanded = false
-                            }
-                        )
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Category.all.forEach { cat ->
+                        FilterChip(selected = category == cat, onClick = { category = cat }, label = { Text(cat) }, leadingIcon = { Icon(categoryIcon(cat), null, modifier = Modifier.size(17.dp)) })
                     }
-                }
-                if (category == customCategoryOption) {
-                    OutlinedTextField(
-                        value = customCategory,
-                        onValueChange = { customCategory = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Custom category") },
-                        placeholder = { Text("e.g. Field Trip, Club, Fundraiser") },
-                        singleLine = true
-                    )
-                }
-                Text("Emoji (optional)", color = Ink, fontWeight = FontWeight.Bold)
-                OutlinedButton(
-                    onClick = { showEmojiPicker = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Text(if (selectedEmoji.isBlank()) "🙂" else selectedEmoji, fontSize = 25.sp)
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        if (selectedEmoji.isBlank()) "Choose an emoji" else "Change emoji",
-                        modifier = Modifier.weight(1f)
-                    )
                 }
                 Text("Date", color = Ink, fontWeight = FontWeight.Bold)
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                ) {
-                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                        Text(
-                            date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
-                            color = Ink,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text("Tap to choose a date", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { date = date.minusDays(1) }) { Text("−") }
+                    Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), color = Ink, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { date = date.plusDays(1) }) { Text("+") }
                 }
                 Text("Repeat", color = Ink, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -944,8 +741,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 }
                 Button(
                     onClick = {
-                        val finalCategory = if (category == customCategoryOption) customCategory.trim().ifBlank { "Other" } else category
-                        vm.addItem(SchoolItem(childId = childId, title = title.trim(), category = finalCategory, emoji = selectedEmoji.takeIf { it.isNotBlank() }, dateIso = date.toString(), repeat = repeat, reminder = reminder, notes = notes.trim(), needsItemFromHome = needsHome))
+                        vm.addItem(SchoolItem(childId = childId, title = title.trim(), category = category, dateIso = date.toString(), repeat = repeat, reminder = reminder, notes = notes.trim(), needsItemFromHome = needsHome))
                         onBack()
                     },
                     enabled = title.isNotBlank(),
@@ -957,87 +753,6 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     Text("Save")
                 }
             }
-        }
-    }
-
-    if (showEmojiPicker) {
-        AlertDialog(
-            onDismissRequest = { showEmojiPicker = false },
-            title = { Text("Choose an emoji") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "Pick something that will make this school thing easy to spot.",
-                        color = Ink.copy(alpha = .65f),
-                        fontSize = 13.sp
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    emojiChoices.chunked(5).forEach { emojiRow ->
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            emojiRow.forEach { emoji ->
-                                TextButton(
-                                    onClick = {
-                                        selectedEmoji = emoji
-                                        showEmojiPicker = false
-                                    },
-                                    modifier = Modifier.size(46.dp),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Text(emoji, fontSize = 25.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showEmojiPicker = false }) { Text("Close") }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        selectedEmoji = ""
-                        showEmojiPicker = false
-                    }
-                ) { Text("No emoji") }
-            }
-        )
-    }
-
-    if (showDatePicker) {
-        val datePickerState = androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis = date
-                .atStartOfDay(java.time.ZoneOffset.UTC)
-                .toInstant()
-                .toEpochMilli()
-        )
-
-        androidx.compose.material3.DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            date = java.time.Instant
-                                .ofEpochMilli(millis)
-                                .atZone(java.time.ZoneOffset.UTC)
-                                .toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) { Text("Choose") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            androidx.compose.material3.DatePicker(
-                state = datePickerState,
-                showModeToggle = true
-            )
         }
     }
 }

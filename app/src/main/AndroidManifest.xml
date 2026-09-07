@@ -13,7 +13,6 @@
         android:theme="@style/Theme.SchoolStuff">
         <activity
             android:name=".MainActivity"
-            android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>

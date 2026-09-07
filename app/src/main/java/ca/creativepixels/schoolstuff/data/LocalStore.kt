@@ -60,6 +60,9 @@ class LocalStore(context: Context) {
         if (value in Reminder.all) prefs.edit().putString("default_reminder", value).apply()
     }
 
+    fun isAppLockEnabled(): Boolean = prefs.getBoolean("app_lock_enabled", false)
+    fun setAppLockEnabled(enabled: Boolean) = prefs.edit().putBoolean("app_lock_enabled", enabled).apply()
+
     fun hasSeeded(): Boolean = prefs.getBoolean("seeded", false)
     fun markSeeded() = prefs.edit().putBoolean("seeded", true).apply()
 

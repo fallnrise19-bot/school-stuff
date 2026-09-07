@@ -56,9 +56,12 @@ import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Face
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalPizza
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
@@ -147,7 +150,12 @@ private enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun SchoolStuffApp(vm: SchoolStuffViewModel) {
+fun SchoolStuffApp(
+    vm: SchoolStuffViewModel,
+    appLockEnabled: Boolean,
+    onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
+    onTestAppLock: ((Boolean, String) -> Unit) -> Unit
+) {
     SchoolStuffTheme {
         var tab by remember { mutableStateOf(MainTab.HOME) }
         var childPage by remember { mutableStateOf<String?>(null) }
@@ -177,7 +185,7 @@ fun SchoolStuffApp(vm: SchoolStuffViewModel) {
                     tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
                     tab == MainTab.CALENDAR -> CalendarScreen(vm)
                     tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
-                    else -> SettingsScreen(vm)
+                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock)
                 }
             }
         }
@@ -1311,7 +1319,12 @@ private fun CollapsibleSettingsCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsScreen(vm: SchoolStuffViewModel) {
+private fun SettingsScreen(
+    vm: SchoolStuffViewModel,
+    appLockEnabled: Boolean,
+    onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
+    onTestAppLock: ((Boolean, String) -> Unit) -> Unit
+) {
     val context = LocalContext.current
     val repo = remember { CalendarProviderRepository(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1328,6 +1341,7 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
     var notificationMessage by remember { mutableStateOf("") }
     var defaultReminderMenuExpanded by remember { mutableStateOf(false) }
     var expandedSettingsSection by remember { mutableStateOf<String?>(null) }
+    var securityMessage by remember { mutableStateOf("") }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -1706,6 +1720,60 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
         }
         item {
             CollapsibleSettingsCard(
+                title = "Security",
+                summary = if (appLockEnabled) "App lock on · fingerprint, face, or phone lock" else "App lock off",
+                icon = Icons.Rounded.Lock,
+                accent = SchoolPink,
+                expanded = expandedSettingsSection == "security",
+                onToggle = { expandedSettingsSection = if (expandedSettingsSection == "security") null else "security" }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Fingerprint, contentDescription = null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Rounded.Face, contentDescription = null, tint = SchoolPink, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Fingerprint or face", color = Ink, fontWeight = FontWeight.Bold)
+                            Text("Android uses the biometric method enrolled on this phone, with PIN, pattern, or password as backup.", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                        }
+                    }
+
+                    Text(
+                        "When enabled, School Stuff locks at launch and after it has been away for 30 seconds. Child information is hidden from the recent-apps preview.",
+                        color = Ink.copy(alpha = .66f),
+                        fontSize = 12.sp
+                    )
+
+                    if (appLockEnabled) {
+                        Button(onClick = {
+                            onTestAppLock { _, message -> securityMessage = message }
+                        }) { Text("Test unlock") }
+                        OutlinedButton(onClick = {
+                            onChangeAppLock(false) { _, message -> securityMessage = message }
+                        }) { Text("Turn off app lock") }
+                    } else {
+                        Button(onClick = {
+                            onChangeAppLock(true) { _, message -> securityMessage = message }
+                        }) {
+                            Icon(Icons.Rounded.Lock, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Turn on app lock")
+                        }
+                    }
+
+                    OutlinedButton(onClick = {
+                        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                    }) { Text("Phone security settings") }
+
+                    if (securityMessage.isNotBlank()) {
+                        Text(securityMessage, color = Ink.copy(alpha = .7f), fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+        item {
+            CollapsibleSettingsCard(
                 title = "About School Stuff",
                 summary = "Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}",
                 icon = Icons.Rounded.School,
@@ -1715,7 +1783,7 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
             ) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Compact settings sections, notification controls, adjustable reminder times, and a test notification.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                        Text("Compact settings, notification controls, and optional fingerprint or face app lock.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                     }
             }
         }

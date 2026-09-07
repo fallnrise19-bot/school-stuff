@@ -53,7 +53,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Paper.toArgb()
-        window.navigationBarColor = SoftBlue.toArgb()
+        window.navigationBarColor = Paper.toArgb()
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true

@@ -3,9 +3,9 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:statusBarColor">#FFFDFC</item>
-        <item name="android:navigationBarColor">#EAF3FF</item>
+        <item name="android:navigationBarColor">#FFFDFC</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:navigationBarDividerColor">#C9DDF5</item>
+        <item name="android:navigationBarDividerColor">#EEE9E3</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

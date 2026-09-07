@@ -16,7 +16,6 @@ import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -170,7 +169,7 @@ fun SchoolStuffApp(
             containerColor = Paper,
             bottomBar = {
                 if (childPage == null && !addingThing) {
-                    NavigationBar(containerColor = SoftBlue) {
+                    NavigationBar(containerColor = Color.White) {
                         MainTab.entries.forEach { item ->
                             NavigationBarItem(
                                 selected = tab == item,
@@ -1380,9 +1379,8 @@ private fun CollapsibleSettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = .10f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = .32f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(20.dp)
     ) {
         Row(
@@ -1390,7 +1388,7 @@ private fun CollapsibleSettingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = .22f)),
+                modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = .14f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(23.dp))
@@ -1403,7 +1401,7 @@ private fun CollapsibleSettingsCard(
             Icon(
                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 contentDescription = if (expanded) tr("Collapse $title", "Réduire $title") else tr("Expand $title", "Développer $title"),
-                tint = accent
+                tint = Ink.copy(alpha = .55f)
             )
         }
         if (expanded) {

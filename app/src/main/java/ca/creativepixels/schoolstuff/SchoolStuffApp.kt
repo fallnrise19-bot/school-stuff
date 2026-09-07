@@ -118,6 +118,7 @@ import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -527,6 +528,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
     var editing by remember { mutableStateOf(false) }
     var previewDocument by remember { mutableStateOf<SchoolDocument?>(null) }
+    var galleryOpen by remember { mutableStateOf(false) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -658,42 +660,100 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                 Section("Papers & Memories", SchoolPink) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         PapersArtStrip()
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            DocumentType.all.forEach { type ->
-                                FilterChip(selected = selectedDocType == type, onClick = { selectedDocType = type }, label = { Text(type) })
-                            }
-                        }
-                        val docs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
-                        if (docs.isEmpty()) {
+                        val childDocs = vm.documents.filter { it.childId == childId }
+                        if (childDocs.isEmpty()) {
                             Text(
                                 "Nothing saved here yet.",
                                 color = Ink.copy(alpha = .58f),
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                modifier = Modifier.padding(vertical = 6.dp)
                             )
                         } else {
+                            val imageCount = childDocs.count { doc ->
+                                val lower = doc.title.lowercase()
+                                lower.endsWith(".png") || lower.endsWith(".jpg") ||
+                                    lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".gif")
+                            }
                             Text(
-                                "Tap a thumbnail to open it.",
-                                color = Ink.copy(alpha = .58f),
-                                fontSize = 12.sp
+                                "${childDocs.size} saved item${if (childDocs.size == 1) "" else "s"}" +
+                                    if (imageCount > 0) " • $imageCount image${if (imageCount == 1) "" else "s"}" else "",
+                                color = Ink.copy(alpha = .65f),
+                                fontSize = 13.sp
                             )
-                            Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                docs.forEachIndexed { index, doc ->
-                                    DocumentGalleryTile(
-                                        doc = doc,
-                                        index = index,
-                                        onOpenImage = { previewDocument = doc },
-                                        onRemove = { vm.deleteDocument(doc.id) }
-                                    )
-                                }
+                            OutlinedButton(onClick = { galleryOpen = true }) {
+                                Icon(Icons.Rounded.PhotoCamera, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Open Gallery")
                             }
                         }
                         OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/*", "application/pdf")) }) {
                             Icon(Icons.Rounded.UploadFile, null)
                             Spacer(Modifier.width(6.dp))
                             Text("Add Photo or File")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    if (galleryOpen) {
+        Dialog(onDismissRequest = { galleryOpen = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${child.name}'s Gallery",
+                            color = Ink,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { galleryOpen = false }) { Text("Close") }
+                    }
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        DocumentType.all.forEach { type ->
+                            FilterChip(
+                                selected = selectedDocType == type,
+                                onClick = { selectedDocType = type },
+                                label = { Text(type) }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    val galleryDocs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
+                    if (galleryDocs.isEmpty()) {
+                        Text(
+                            "Nothing saved in $selectedDocType yet.",
+                            color = Ink.copy(alpha = .58f),
+                            modifier = Modifier.padding(vertical = 18.dp)
+                        )
+                    } else {
+                        Text(
+                            "Tap an item to enlarge or open it.",
+                            color = Ink.copy(alpha = .58f),
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            galleryDocs.forEachIndexed { index, doc ->
+                                DocumentGalleryTile(
+                                    doc = doc,
+                                    index = index,
+                                    onOpenImage = { previewDocument = doc },
+                                    onRemove = { vm.deleteDocument(doc.id) }
+                                )
+                            }
                         }
                     }
                 }
@@ -720,7 +780,11 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                         TextButton(onClick = { previewDocument = null }) { Text("Close") }
                     }
                     AsyncImage(
-                        model = doc.uri,
+                        model = ImageRequest.Builder(context)
+                            .data(Uri.parse(doc.uri))
+                            .size(1600)
+                            .crossfade(false)
+                            .build(),
                         contentDescription = doc.title,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -784,7 +848,11 @@ private fun DocumentGalleryTile(
             ) {
                 if (isImage) {
                     AsyncImage(
-                        model = doc.uri,
+                        model = ImageRequest.Builder(context)
+                            .data(Uri.parse(doc.uri))
+                            .size(320)
+                            .crossfade(false)
+                            .build(),
                         contentDescription = doc.title,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

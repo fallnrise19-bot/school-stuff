@@ -697,6 +697,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
     var reminder by remember { mutableStateOf(Reminder.NIGHT_BEFORE) }
     var notes by remember { mutableStateOf("") }
     var needsHome by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -721,10 +722,22 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     }
                 }
                 Text("Date", color = Ink, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { date = date.minusDays(1) }) { Text("−") }
-                    Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), color = Ink, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = { date = date.plusDays(1) }) { Text("+") }
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                        Text(
+                            date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
+                            color = Ink,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text("Tap to choose a date", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
+                    }
                 }
                 Text("Repeat", color = Ink, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -753,6 +766,40 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     Text("Save")
                 }
             }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = date
+                .atStartOfDay(java.time.ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        )
+
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            date = java.time.Instant
+                                .ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("Choose") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            androidx.compose.material3.DatePicker(
+                state = datePickerState,
+                showModeToggle = true
+            )
         }
     }
 }

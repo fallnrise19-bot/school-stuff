@@ -94,7 +94,8 @@ object Reminder {
 object DocumentType {
     const val FORM = "Forms"
     const val REPORT_CARD = "Report Cards"
+    const val MEDICAL = "Medical / ICP"
     const val ARTWORK = "Artwork"
     const val PHOTO = "Photos"
-    val all = listOf(FORM, REPORT_CARD, ARTWORK, PHOTO)
+    val all = listOf(FORM, REPORT_CARD, MEDICAL, ARTWORK, PHOTO)
 }

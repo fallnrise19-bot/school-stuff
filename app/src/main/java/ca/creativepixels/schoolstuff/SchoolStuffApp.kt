@@ -1,13 +1,16 @@
 package ca.creativepixels.schoolstuff
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -113,7 +116,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -507,6 +512,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     val child = vm.child(childId) ?: return
     val context = LocalContext.current
     var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
+    var uploadDocType by remember { mutableStateOf(DocumentType.FORM) }
+    var choosingDocumentType by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -517,7 +524,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                     if (c.moveToFirst()) c.getString(0) else null
                 }
             }.getOrNull() ?: "School file"
-            vm.addDocument(SchoolDocument(childId = childId, title = name, type = selectedDocType, uri = uri.toString()))
+            vm.addDocument(SchoolDocument(childId = childId, title = name, type = uploadDocType, uri = uri.toString()))
+            selectedDocType = uploadDocType
         }
     }
 
@@ -610,18 +618,47 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             }
                         }
                         val docs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
+                        if (docs.isEmpty()) {
+                            Text(
+                                "Nothing saved in ${documentTypeLabel(selectedDocType).lowercase()} yet.",
+                                color = Ink.copy(alpha = .58f),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(vertical = 5.dp)
+                            )
+                        }
                         docs.forEach { doc ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                                Icon(documentIcon(doc.type), null, tint = SchoolBlue)
-                                Spacer(Modifier.width(10.dp))
-                                Text(doc.title, color = Ink, modifier = Modifier.weight(1f), maxLines = 2)
-                                TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text("Remove") }
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { openSchoolDocument(context, doc) },
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(documentIcon(doc.type), null, tint = SchoolBlue)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(documentDisplayTitle(doc), color = Ink, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            doc.title,
+                                            color = Ink.copy(alpha = .55f),
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    TextButton(onClick = { openSchoolDocument(context, doc) }) { Text("Open") }
+                                    TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text("Remove") }
+                                }
                             }
                         }
-                        OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/*", "application/pdf")) }) {
+                        OutlinedButton(onClick = { choosingDocumentType = true }) {
                             Icon(Icons.Rounded.UploadFile, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Add Photo or File")
+                            Text("Add Paper or Memory")
                         }
                     }
                 }
@@ -631,6 +668,77 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
 
     if (editing) {
         EditChildDialog(child, onDismiss = { editing = false }, onSave = { vm.updateChild(it); editing = false })
+    }
+
+    if (choosingDocumentType) {
+        DocumentTypePickerDialog(
+            onDismiss = { choosingDocumentType = false },
+            onSelected = { type ->
+                uploadDocType = type
+                selectedDocType = type
+                choosingDocumentType = false
+                documentLauncher.launch(arrayOf("image/*", "application/pdf"))
+            }
+        )
+    }
+}
+
+@Composable
+private fun DocumentTypePickerDialog(onDismiss: () -> Unit, onSelected: (String) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("What are you adding?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                documentUploadChoices.forEach { (label, type) ->
+                    OutlinedButton(onClick = { onSelected(type) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(documentIcon(type), null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+private val documentUploadChoices = listOf(
+    "School Form" to DocumentType.FORM,
+    "Report Card" to DocumentType.REPORT_CARD,
+    "Medical / ICP" to DocumentType.MEDICAL,
+    "Artwork" to DocumentType.ARTWORK,
+    "Photo" to DocumentType.PHOTO
+)
+
+private fun documentTypeLabel(type: String): String = when (type) {
+    DocumentType.FORM -> "School form"
+    DocumentType.REPORT_CARD -> "Report card"
+    DocumentType.MEDICAL -> "Medical / ICP paper"
+    DocumentType.ARTWORK -> "Artwork"
+    DocumentType.PHOTO -> "Photo"
+    else -> "School file"
+}
+
+private fun documentDisplayTitle(document: SchoolDocument): String {
+    val date = Instant.ofEpochMilli(document.addedAtMillis)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .format(DateTimeFormatter.ofPattern("MMM d"))
+    return "${documentTypeLabel(document.type)} • $date"
+}
+
+private fun openSchoolDocument(context: Context, document: SchoolDocument) {
+    runCatching {
+        val uri = Uri.parse(document.uri)
+        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(viewIntent, "Open school file"))
+    }.onFailure {
+        Toast.makeText(context, "This file is no longer available. Try adding it again.", Toast.LENGTH_LONG).show()
     }
 }
 
@@ -646,6 +754,7 @@ private fun InfoLine(icon: ImageVector, label: String, value: String) {
 
 private fun documentIcon(type: String): ImageVector = when (type) {
     DocumentType.REPORT_CARD -> Icons.Rounded.Star
+    DocumentType.MEDICAL -> Icons.Rounded.Assignment
     DocumentType.ARTWORK -> Icons.Rounded.Palette
     DocumentType.PHOTO -> Icons.Rounded.PhotoCamera
     else -> Icons.Rounded.Description

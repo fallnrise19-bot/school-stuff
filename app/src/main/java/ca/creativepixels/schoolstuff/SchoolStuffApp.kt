@@ -63,6 +63,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalPizza
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
@@ -142,11 +143,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-private enum class MainTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Rounded.Home),
-    CALENDAR("Calendar", Icons.Rounded.CalendarMonth),
-    KIDS("Kids", Icons.Rounded.Groups),
-    SETTINGS("Settings", Icons.Rounded.Settings)
+private enum class MainTab(val english: String, val french: String, val icon: ImageVector) {
+    HOME("Home", "Accueil", Icons.Rounded.Home),
+    CALENDAR("Calendar", "Calendrier", Icons.Rounded.CalendarMonth),
+    KIDS("Kids", "Enfants", Icons.Rounded.Groups),
+    SETTINGS("Settings", "Paramètres", Icons.Rounded.Settings)
 }
 
 @Composable
@@ -154,7 +155,9 @@ fun SchoolStuffApp(
     vm: SchoolStuffViewModel,
     appLockEnabled: Boolean,
     onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
-    onTestAppLock: ((Boolean, String) -> Unit) -> Unit
+    onTestAppLock: ((Boolean, String) -> Unit) -> Unit,
+    appLanguage: String,
+    onChangeLanguage: (String) -> Unit
 ) {
     SchoolStuffTheme {
         var tab by remember { mutableStateOf(MainTab.HOME) }
@@ -171,7 +174,7 @@ fun SchoolStuffApp(
                                 selected = tab == item,
                                 onClick = { tab = item },
                                 icon = { Icon(item.icon, contentDescription = null) },
-                                label = { Text(item.label) }
+                                label = { Text(tr(item.english, item.french)) }
                             )
                         }
                     }
@@ -185,7 +188,7 @@ fun SchoolStuffApp(
                     tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
                     tab == MainTab.CALENDAR -> CalendarScreen(vm)
                     tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
-                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock)
+                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock, appLanguage, onChangeLanguage)
                 }
             }
         }
@@ -199,7 +202,7 @@ private fun Header(title: String, subtitle: String, back: (() -> Unit)? = null, 
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (back != null) {
-            IconButton(onClick = back) { Icon(Icons.Rounded.ArrowBack, "Back", tint = Ink) }
+            IconButton(onClick = back) { Icon(Icons.Rounded.ArrowBack, tr("Back", "Retour"), tint = Ink) }
         }
         Column(Modifier.weight(1f)) {
             Box {
@@ -306,7 +309,8 @@ private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Com
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("${vm.childName(item.childId)} • ${item.category}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
+            val who = if (item.childId.isBlank()) tr("Family", "Famille") else vm.childName(item.childId)
+            Text("$who • ${categoryLabel(item.category)}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
         }
         trailing?.invoke()
     }
@@ -336,11 +340,11 @@ private fun HomeMockupHero() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Everything school. One place.", color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Text(tr("Everything school. One place.", "Toute l’école. Un seul endroit."), color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
                 Spacer(Modifier.height(4.dp))
-                Text("The fridge has officially been demoted.", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                Text(tr("The fridge has officially been demoted.", "Le frigo vient officiellement d’être rétrogradé."), color = Ink.copy(alpha = .62f), fontSize = 12.sp)
             }
-            MockupArtImage(MockupAsset.BACKPACK, modifier = Modifier.size(104.dp), contentDescription = "School backpack")
+            MockupArtImage(MockupAsset.BACKPACK, modifier = Modifier.size(104.dp), contentDescription = tr("School backpack", "Sac à dos scolaire"))
         }
     }
 }
@@ -348,20 +352,20 @@ private fun HomeMockupHero() {
 @Composable
 private fun MockupMiniStrip() {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        MockupArtImage(MockupAsset.BOOKS, Modifier.size(45.dp), "Books")
+        MockupArtImage(MockupAsset.BOOKS, Modifier.size(45.dp), tr("Books", "Livres"))
         MockupArtImage(MockupAsset.PIZZA, Modifier.size(45.dp), "Pizza")
-        MockupArtImage(MockupAsset.SHIRT, Modifier.size(45.dp), "Spirit shirt")
-        MockupArtImage(MockupAsset.SANDWICH, Modifier.size(45.dp), "Sub day")
+        MockupArtImage(MockupAsset.SHIRT, Modifier.size(45.dp), tr("Spirit shirt", "Chandail thématique"))
+        MockupArtImage(MockupAsset.SANDWICH, Modifier.size(45.dp), tr("Sub day", "Journée sous-marin"))
     }
 }
 
 @Composable
 private fun PapersArtStrip() {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        MockupArtImage(MockupAsset.PALETTE, Modifier.size(58.dp), "Artwork")
+        MockupArtImage(MockupAsset.PALETTE, Modifier.size(58.dp), tr("Artwork", "Œuvre d’art"))
         MockupArtImage(MockupAsset.CAMERA, Modifier.size(52.dp), "Photos")
-        MockupArtImage(MockupAsset.DOCUMENT, Modifier.size(52.dp), "Forms")
-        MockupArtImage(MockupAsset.STAR, Modifier.size(42.dp), "Memories")
+        MockupArtImage(MockupAsset.DOCUMENT, Modifier.size(52.dp), tr("Forms", "Formulaires"))
+        MockupArtImage(MockupAsset.STAR, Modifier.size(42.dp), tr("Memories", "Souvenirs"))
     }
 }
 
@@ -377,14 +381,14 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("School Stuff", "Little things. Big school days. ♥", note = "You got this!") }
+        item { Header("School Stuff", tr("Little things. Big school days. ♥", "Petites choses. Grandes journées d’école. ♥"), note = tr("You got this!", "Vous êtes capable !")) }
         item { HomeMockupHero() }
         item {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(selected = selectedChild == null, onClick = { selectedChild = null }, label = { Text("All") })
+                FilterChip(selected = selectedChild == null, onClick = { selectedChild = null }, label = { Text(tr("All", "Tous")) })
                 vm.children.forEach { child ->
                     FilterChip(
                         selected = selectedChild == child.id,
@@ -403,10 +407,10 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
                     shape = RoundedCornerShape(18.dp)
                 ) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        MockupArtImage(MockupAsset.CAMERA, modifier = Modifier.size(52.dp), contentDescription = "Picture Day")
+                        MockupArtImage(MockupAsset.CAMERA, modifier = Modifier.size(52.dp), contentDescription = tr("Picture Day", "Journée photo"))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Picture Day coming up", color = Ink, fontWeight = FontWeight.Bold)
+                            Text(tr("Picture Day coming up", "La journée photo approche"), color = Ink, fontWeight = FontWeight.Bold)
                             Text(upcomingPicture.first.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), color = Ink.copy(alpha = .65f))
                         }
                     }
@@ -417,10 +421,10 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
             ParentNotesCard(notes = vm.parentNotes, onEdit = { editingParentNotes = true })
         }
         item {
-            DaySection("Today", today, SoftBlue, vm, selectedChild)
+            DaySection(tr("Today", "Aujourd’hui"), today, SoftBlue, vm, selectedChild)
         }
         item {
-            DaySection("Tomorrow", tomorrow, SoftGreen, vm, selectedChild)
+            DaySection(tr("Tomorrow", "Demain"), tomorrow, SoftGreen, vm, selectedChild)
         }
         item {
             Button(
@@ -430,12 +434,12 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
             ) {
                 Icon(Icons.Rounded.Add, null)
                 Spacer(Modifier.width(6.dp))
-                Text("Add School Thing")
+                Text(tr("Add School Thing", "Ajouter un élément scolaire"))
             }
         }
         item {
             Text(
-                "Tap a child below for teacher info, homework and papers.",
+                tr("Tap a child below for teacher info, homework and papers.", "Touchez un enfant ci-dessous pour voir l’enseignant, les devoirs et les documents."),
                 color = Ink.copy(alpha = .6f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 18.dp)
@@ -474,16 +478,16 @@ private fun ParentNotesCard(notes: String, onEdit: () -> Unit) {
             Icon(Icons.Rounded.MenuBook, null, tint = SchoolBlue, modifier = Modifier.size(30.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("Parent Notes", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Parent Notes", "Notes des parents"), color = Ink, fontWeight = FontWeight.Bold)
                 Text(
-                    notes.ifBlank { "A little notebook for the things parents need to remember." },
+                    notes.ifBlank { tr("A little notebook for the things parents need to remember.", "Un petit carnet pour les choses que les parents doivent retenir.") },
                     color = Ink.copy(alpha = .62f),
                     fontSize = 12.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            TextButton(onClick = onEdit) { Text(if (notes.isBlank()) "Add" else "Edit") }
+            TextButton(onClick = onEdit) { Text(if (notes.isBlank()) tr("Add", "Ajouter") else tr("Edit", "Modifier")) }
         }
     }
 }
@@ -493,19 +497,19 @@ private fun ParentNotesDialog(currentNotes: String, onDismiss: () -> Unit, onSav
     var notes by remember(currentNotes) { mutableStateOf(currentNotes) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Parent Notes") },
+        title = { Text(tr("Parent Notes", "Notes des parents")) },
         text = {
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Quick notes") },
+                label = { Text(tr("Quick notes", "Notes rapides")) },
                 minLines = 4,
                 maxLines = 8
             )
         },
-        confirmButton = { Button(onClick = { onSave(notes) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { Button(onClick = { onSave(notes) }) { Text(tr("Save", "Enregistrer")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
     )
 }
 
@@ -519,10 +523,10 @@ private fun DaySection(
 ) {
     val list = vm.itemsFor(date).filter { selectedChild == null || it.childId == selectedChild }
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Section("$title  •  ${date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))}", tint) {
+        Section("$title  •  ${date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}", tint) {
             Column {
                 if (list.isEmpty()) {
-                    Text("Nothing on the list. Suspiciously peaceful.", color = Ink.copy(alpha = .6f), modifier = Modifier.padding(vertical = 14.dp))
+                    Text(tr("Nothing on the list. Suspiciously peaceful.", "Rien sur la liste. C’est presque suspect."), color = Ink.copy(alpha = .6f), modifier = Modifier.padding(vertical = 14.dp))
                 } else {
                     list.forEachIndexed { index, item ->
                         SchoolRow(vm, item)
@@ -542,7 +546,7 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("Kids", "Different schedules. One parent brain. ♥", note = "Same kids.\nBrighter days.") }
+        item { Header(tr("Kids", "Enfants"), tr("Different schedules. One parent brain. ♥", "Des horaires différents. Un seul cerveau de parent. ♥"), note = tr("Same kids.\nBrighter days.", "Les mêmes enfants.\nDes journées plus simples.")) }
         items(vm.children, key = { it.id }) { child ->
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { onChild(child.id) },
@@ -555,7 +559,7 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(child.name, fontSize = 24.sp, fontWeight = FontWeight.Black, color = Ink)
-                            Text(child.grade.ifBlank { "Grade not set" }, color = Ink.copy(alpha = .58f))
+                            Text(child.grade.ifBlank { tr("Grade not set", "Niveau non indiqué") }, color = Ink.copy(alpha = .58f))
                         }
                         Icon(Icons.Rounded.School, null, tint = childColor(child.colorKey))
                     }
@@ -577,7 +581,7 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
             ) {
                 Icon(Icons.Rounded.Add, null)
                 Spacer(Modifier.width(6.dp))
-                Text("Add Child")
+                Text(tr("Add Child", "Ajouter un enfant"))
             }
         }
     }
@@ -587,17 +591,17 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
         var grade by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { addDialog = false },
-            title = { Text("Add Child") },
+            title = { Text(tr("Add Child", "Ajouter un enfant")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                    OutlinedTextField(grade, { grade = it }, label = { Text("Grade") }, singleLine = true)
+                    OutlinedTextField(name, { name = it }, label = { Text(tr("Name", "Nom")) }, singleLine = true)
+                    OutlinedTextField(grade, { grade = it }, label = { Text(tr("Grade", "Niveau")) }, singleLine = true)
                 }
             },
             confirmButton = {
-                Button(onClick = { vm.addChild(name, grade); addDialog = false }, enabled = name.isNotBlank()) { Text("Add") }
+                Button(onClick = { vm.addChild(name, grade); addDialog = false }, enabled = name.isNotBlank()) { Text(tr("Add", "Ajouter")) }
             },
-            dismissButton = { TextButton(onClick = { addDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { addDialog = false }) { Text(tr("Cancel", "Annuler")) } }
         )
     }
 }
@@ -619,7 +623,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                 context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                     if (c.moveToFirst()) c.getString(0) else null
                 }
-            }.getOrNull() ?: "School file"
+            }.getOrNull() ?: tr("School file", "Fichier scolaire")
             vm.addDocument(SchoolDocument(childId = childId, title = name, type = uploadDocType, uri = uri.toString()))
             selectedDocType = uploadDocType
         }
@@ -630,7 +634,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         contentPadding = PaddingValues(bottom = 26.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header(child.name, "Your school dashboard. ♥", back = onBack, note = child.grade.ifBlank { "School year" }) }
+        item { Header(child.name, tr("Your school dashboard. ♥", "Votre tableau de bord scolaire. ♥"), back = onBack, note = child.grade.ifBlank { tr("School year", "Année scolaire") }) }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -645,11 +649,11 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             Text(child.name, fontSize = 24.sp, color = Ink, fontWeight = FontWeight.Black)
                             Text(child.grade, color = Ink.copy(alpha = .58f))
                         }
-                        IconButton(onClick = { editing = true }) { Icon(Icons.Rounded.Edit, "Edit") }
+                        IconButton(onClick = { editing = true }) { Icon(Icons.Rounded.Edit, tr("Edit", "Modifier")) }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text(child.teacherName.ifBlank { "Add teacher information" }, color = Ink, fontWeight = FontWeight.SemiBold)
-                    if (child.room.isNotBlank()) Text("Room ${child.room}", color = Ink.copy(alpha = .6f))
+                    Text(child.teacherName.ifBlank { tr("Add teacher information", "Ajouter les renseignements de l’enseignant") }, color = Ink, fontWeight = FontWeight.SemiBold)
+                    if (child.room.isNotBlank()) Text("${tr("Room", "Salle")} ${child.room}", color = Ink.copy(alpha = .6f))
                     if (child.schoolName.isNotBlank()) Text(child.schoolName, color = Ink.copy(alpha = .6f))
                     Spacer(Modifier.height(10.dp))
                     MockupMiniStrip()
@@ -658,31 +662,31 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("This Week", SchoolGreen) {
+                Section(tr("This Week", "Cette semaine"), SchoolGreen) {
                     Column {
                         val next = vm.upcoming(7).filter { it.second.childId == childId }.take(6)
-                        if (next.isEmpty()) Text("Nothing scheduled yet.", modifier = Modifier.padding(vertical = 12.dp))
+                        if (next.isEmpty()) Text(tr("Nothing scheduled yet.", "Rien de prévu pour le moment."), modifier = Modifier.padding(vertical = 12.dp))
                         next.forEach { (date, item) ->
                             SchoolRow(vm, item) {
                                 Text(date.format(DateTimeFormatter.ofPattern("EEE")), color = Ink.copy(alpha = .6f), fontSize = 12.sp)
                             }
                             HorizontalDivider(color = Ink.copy(alpha = .07f))
                         }
-                        TextButton(onClick = onAddThing) { Icon(Icons.Rounded.Add, null); Text("Add school thing") }
+                        TextButton(onClick = onAddThing) { Icon(Icons.Rounded.Add, null); Text(tr("Add school thing", "Ajouter un élément scolaire")) }
                     }
                 }
             }
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Teacher & School", SchoolBlue) {
+                Section(tr("Teacher & School", "Enseignant et école"), SchoolBlue) {
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        InfoLine(Icons.Rounded.School, "Teacher", child.teacherName.ifBlank { "Not added" })
-                        InfoLine(Icons.Rounded.Email, "Email", child.teacherEmail.ifBlank { "Not added" })
-                        InfoLine(Icons.Rounded.Call, "Classroom phone", child.classroomPhone.ifBlank { "Not added" })
-                        InfoLine(Icons.Rounded.Home, "School", child.schoolName.ifBlank { "Not added" })
-                        InfoLine(Icons.Rounded.Call, "School phone", child.schoolPhone.ifBlank { "Not added" })
-                        if (child.specialNotes.isNotBlank()) Text("Note: ${child.specialNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                        InfoLine(Icons.Rounded.School, tr("Teacher", "Enseignant(e)"), child.teacherName.ifBlank { tr("Not added", "Non ajouté") })
+                        InfoLine(Icons.Rounded.Email, tr("Email", "Courriel"), child.teacherEmail.ifBlank { tr("Not added", "Non ajouté") })
+                        InfoLine(Icons.Rounded.Call, tr("Classroom phone", "Téléphone de la classe"), child.classroomPhone.ifBlank { tr("Not added", "Non ajouté") })
+                        InfoLine(Icons.Rounded.Home, tr("School", "École"), child.schoolName.ifBlank { tr("Not added", "Non ajouté") })
+                        InfoLine(Icons.Rounded.Call, tr("School phone", "Téléphone de l’école"), child.schoolPhone.ifBlank { tr("Not added", "Non ajouté") })
+                        if (child.specialNotes.isNotBlank()) Text("${tr("Note", "Note")} : ${child.specialNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
                     }
                 }
             }
@@ -690,31 +694,31 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         item {
             val info = vm.transportationFor(childId)
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Transportation", SchoolGreen) {
+                Section(tr("Transportation", "Transport"), SchoolGreen) {
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         if (info == null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
                                 Spacer(Modifier.width(10.dp))
-                                Text("No transportation information added yet.", color = Ink.copy(alpha = .62f), modifier = Modifier.weight(1f))
+                                Text(tr("No transportation information added yet.", "Aucun renseignement de transport n’a été ajouté."), color = Ink.copy(alpha = .62f), modifier = Modifier.weight(1f))
                             }
                         } else if (info.mode == TransportationMode.PRIVATE) {
-                            InfoLine(Icons.Rounded.DirectionsCar, "Type", "Private transportation")
+                            InfoLine(Icons.Rounded.DirectionsCar, tr("Type", "Type"), transportationModeLabel(TransportationMode.PRIVATE))
                             Text(
-                                info.pickupInfo.ifBlank { "Add who is picking up, where and when." },
+                                info.pickupInfo.ifBlank { tr("Add who is picking up, where and when.", "Ajoutez qui vient chercher l’enfant, où et quand.") },
                                 color = Ink.copy(alpha = .7f),
                                 fontSize = 13.sp
                             )
                         } else {
-                            InfoLine(Icons.Rounded.DirectionsBus, "Bus number", info.busNumber.ifBlank { "Not added" })
-                            InfoLine(Icons.Rounded.LocationOn, "Pickup point", info.pickupPoint.ifBlank { "Not added" })
-                            InfoLine(Icons.Rounded.Person, "Driver", info.driverName.ifBlank { "Not added" })
+                            InfoLine(Icons.Rounded.DirectionsBus, tr("Bus number", "Numéro d’autobus"), info.busNumber.ifBlank { tr("Not added", "Non ajouté") })
+                            InfoLine(Icons.Rounded.LocationOn, tr("Pickup point", "Point d’embarquement"), info.pickupPoint.ifBlank { tr("Not added", "Non ajouté") })
+                            InfoLine(Icons.Rounded.Person, tr("Driver", "Chauffeur"), info.driverName.ifBlank { tr("Not added", "Non ajouté") })
                             if (info.pickupInfo.isNotBlank()) Text(info.pickupInfo, color = Ink.copy(alpha = .7f), fontSize = 13.sp)
                         }
                         TextButton(onClick = { editingTransportation = true }) {
                             Icon(Icons.Rounded.Edit, null)
                             Spacer(Modifier.width(4.dp))
-                            Text(if (info == null) "Add transportation" else "Edit transportation")
+                            Text(if (info == null) tr("Add transportation", "Ajouter le transport") else tr("Edit transportation", "Modifier le transport"))
                         }
                     }
                 }
@@ -722,10 +726,10 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Homework & Forms", SchoolYellow) {
+                Section(tr("Homework & Forms", "Devoirs et formulaires"), SchoolYellow) {
                     Column {
                         val tasks = vm.items.filter { it.childId == childId && it.category in listOf(Category.HOMEWORK, Category.FORM_DUE, Category.BRING_ITEM) }
-                        if (tasks.isEmpty()) Text("No homework or forms tracked yet.", modifier = Modifier.padding(vertical = 12.dp))
+                        if (tasks.isEmpty()) Text(tr("No homework or forms tracked yet.", "Aucun devoir ni formulaire suivi."), modifier = Modifier.padding(vertical = 12.dp))
                         tasks.forEach { item ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = item.completed, onCheckedChange = { vm.toggleComplete(item.id) })
@@ -738,18 +742,18 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Papers & Memories", SchoolPink) {
+                Section(tr("Papers & Memories", "Documents et souvenirs"), SchoolPink) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         PapersArtStrip()
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             DocumentType.all.forEach { type ->
-                                FilterChip(selected = selectedDocType == type, onClick = { selectedDocType = type }, label = { Text(type) })
+                                FilterChip(selected = selectedDocType == type, onClick = { selectedDocType = type }, label = { Text(documentTypeLabel(type)) })
                             }
                         }
                         val docs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
                         if (docs.isEmpty()) {
                             Text(
-                                "Nothing saved in ${documentTypeLabel(selectedDocType).lowercase()} yet.",
+                                tr("Nothing saved in ${documentTypeLabel(selectedDocType).lowercase()} yet.", "Aucun élément enregistré dans ${documentTypeLabel(selectedDocType).lowercase()} pour le moment."),
                                 color = Ink.copy(alpha = .58f),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(vertical = 5.dp)
@@ -779,15 +783,15 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                    TextButton(onClick = { openSchoolDocument(context, doc) }) { Text("Open") }
-                                    TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text("Remove") }
+                                    TextButton(onClick = { openSchoolDocument(context, doc) }) { Text(tr("Open", "Ouvrir")) }
+                                    TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text(tr("Remove", "Supprimer")) }
                                 }
                             }
                         }
                         OutlinedButton(onClick = { choosingDocumentType = true }) {
                             Icon(Icons.Rounded.UploadFile, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Add Paper or Memory")
+                            Text(tr("Add Paper or Memory", "Ajouter un document ou un souvenir"))
                         }
                     }
                 }
@@ -839,29 +843,29 @@ private fun TransportationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${child.name}'s transportation") },
+        title = { Text(tr("${child.name}'s transportation", "Transport de ${child.name}")) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    Text("Transportation type", color = Ink, fontWeight = FontWeight.Bold)
+                    Text(tr("Transportation type", "Type de transport"), color = Ink, fontWeight = FontWeight.Bold)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         TransportationMode.all.forEach { option ->
-                            FilterChip(selected = mode == option, onClick = { mode = option }, label = { Text(option) })
+                            FilterChip(selected = mode == option, onClick = { mode = option }, label = { Text(transportationModeLabel(option)) })
                         }
                     }
                 }
                 if (mode == TransportationMode.BUS) {
-                    item { OutlinedTextField(busNumber, { busNumber = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Bus number") }, singleLine = true) }
-                    item { OutlinedTextField(pickupPoint, { pickupPoint = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Pickup point or stop") }, singleLine = true) }
-                    item { OutlinedTextField(driverName, { driverName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Driver's name") }, singleLine = true) }
-                    item { OutlinedTextField(pickupInfo, { pickupInfo = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Pickup time or extra notes") }, minLines = 2, maxLines = 4) }
+                    item { OutlinedTextField(busNumber, { busNumber = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Bus number", "Numéro d’autobus")) }, singleLine = true) }
+                    item { OutlinedTextField(pickupPoint, { pickupPoint = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Pickup point or stop", "Point d’embarquement ou arrêt")) }, singleLine = true) }
+                    item { OutlinedTextField(driverName, { driverName = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Driver's name", "Nom du chauffeur")) }, singleLine = true) }
+                    item { OutlinedTextField(pickupInfo, { pickupInfo = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Pickup time or extra notes", "Heure d’embarquement ou notes")) }, minLines = 2, maxLines = 4) }
                 } else {
                     item {
                         OutlinedTextField(
                             pickupInfo,
                             { pickupInfo = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Who is picking up, where and when?") },
+                            label = { Text(tr("Who is picking up, where and when?", "Qui vient chercher l’enfant, où et quand ?")) },
                             minLines = 4,
                             maxLines = 7
                         )
@@ -881,9 +885,9 @@ private fun TransportationDialog(
                         pickupInfo = pickupInfo.trim()
                     )
                 )
-            }) { Text("Save") }
+            }) { Text(tr("Save", "Enregistrer")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
     )
 }
 
@@ -891,45 +895,30 @@ private fun TransportationDialog(
 private fun DocumentTypePickerDialog(onDismiss: () -> Unit, onSelected: (String) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("What are you adding?") },
+        title = { Text(tr("What are you adding?", "Qu’ajoutez-vous ?")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                documentUploadChoices.forEach { (label, type) ->
+                documentUploadChoices.forEach { type ->
                     OutlinedButton(onClick = { onSelected(type) }, modifier = Modifier.fillMaxWidth()) {
                         Icon(documentIcon(type), null)
                         Spacer(Modifier.width(8.dp))
-                        Text(label, modifier = Modifier.weight(1f))
+                        Text(documentTypeLabel(type), modifier = Modifier.weight(1f))
                     }
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
     )
 }
 
-private val documentUploadChoices = listOf(
-    "School Form" to DocumentType.FORM,
-    "Report Card" to DocumentType.REPORT_CARD,
-    "Medical / ICP" to DocumentType.MEDICAL,
-    "Artwork" to DocumentType.ARTWORK,
-    "Photo" to DocumentType.PHOTO
-)
-
-private fun documentTypeLabel(type: String): String = when (type) {
-    DocumentType.FORM -> "School form"
-    DocumentType.REPORT_CARD -> "Report card"
-    DocumentType.MEDICAL -> "Medical / ICP paper"
-    DocumentType.ARTWORK -> "Artwork"
-    DocumentType.PHOTO -> "Photo"
-    else -> "School file"
-}
+private val documentUploadChoices = DocumentType.all
 
 private fun documentDisplayTitle(document: SchoolDocument): String {
     val date = Instant.ofEpochMilli(document.addedAtMillis)
         .atZone(ZoneId.systemDefault())
         .toLocalDate()
-        .format(DateTimeFormatter.ofPattern("MMM d"))
+        .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
     return "${documentTypeLabel(document.type)} • $date"
 }
 
@@ -940,9 +929,9 @@ private fun openSchoolDocument(context: Context, document: SchoolDocument) {
             setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(viewIntent, "Open school file"))
+        context.startActivity(Intent.createChooser(viewIntent, tr("Open school file", "Ouvrir le fichier scolaire")))
     }.onFailure {
-        Toast.makeText(context, "This file is no longer available. Try adding it again.", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, tr("This file is no longer available. Try adding it again.", "Ce fichier n’est plus disponible. Essayez de l’ajouter de nouveau."), Toast.LENGTH_LONG).show()
     }
 }
 
@@ -990,25 +979,25 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${child.name}'s school info") },
+        title = { Text(tr("${child.name}'s school info", "Renseignements scolaires de ${child.name}")) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                item { OutlinedTextField(grade, { grade = it }, label = { Text("Grade") }, singleLine = true) }
-                item { OutlinedTextField(teacher, { teacher = it }, label = { Text("Teacher") }, singleLine = true) }
-                item { OutlinedTextField(email, { email = it }, label = { Text("Teacher email") }, singleLine = true) }
-                item { OutlinedTextField(phone, { phone = it }, label = { Text("Classroom phone") }, singleLine = true) }
-                item { OutlinedTextField(room, { room = it }, label = { Text("Room") }, singleLine = true) }
-                item { OutlinedTextField(school, { school = it }, label = { Text("School") }, singleLine = true) }
-                item { OutlinedTextField(schoolPhone, { schoolPhone = it }, label = { Text("School phone") }, singleLine = true) }
-                item { OutlinedTextField(notes, { notes = it }, label = { Text("Special notes") }) }
+                item { OutlinedTextField(grade, { grade = it }, label = { Text(tr("Grade", "Niveau")) }, singleLine = true) }
+                item { OutlinedTextField(teacher, { teacher = it }, label = { Text(tr("Teacher", "Enseignant(e)")) }, singleLine = true) }
+                item { OutlinedTextField(email, { email = it }, label = { Text(tr("Teacher email", "Courriel de l’enseignant")) }, singleLine = true) }
+                item { OutlinedTextField(phone, { phone = it }, label = { Text(tr("Classroom phone", "Téléphone de la classe")) }, singleLine = true) }
+                item { OutlinedTextField(room, { room = it }, label = { Text(tr("Room", "Salle")) }, singleLine = true) }
+                item { OutlinedTextField(school, { school = it }, label = { Text(tr("School", "École")) }, singleLine = true) }
+                item { OutlinedTextField(schoolPhone, { schoolPhone = it }, label = { Text(tr("School phone", "Téléphone de l’école")) }, singleLine = true) }
+                item { OutlinedTextField(notes, { notes = it }, label = { Text(tr("Special notes", "Notes particulières")) }) }
             }
         },
         confirmButton = {
             Button(onClick = {
                 onSave(child.copy(grade = grade, teacherName = teacher, teacherEmail = email, classroomPhone = phone, room = room, schoolName = school, schoolPhone = schoolPhone, specialNotes = notes))
-            }) { Text("Save") }
+            }) { Text(tr("Save", "Enregistrer")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
     )
 }
 
@@ -1043,25 +1032,25 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
         contentPadding = PaddingValues(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("Add School Thing", "Get it out of your brain and into the app. ♥", back = onBack, note = "Future you says thanks.") }
+        item { Header(tr("Add School Thing", "Ajouter un élément scolaire"), tr("Get it out of your brain and into the app. ♥", "Sortez-le de votre tête et mettez-le dans l’appli. ♥"), back = onBack, note = tr("Future you says thanks.", "Votre futur vous remercie.")) }
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Who is this for?", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Who is this for?", "Pour qui ?"), color = Ink, fontWeight = FontWeight.Bold)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    FilterChip(selected = childId.isBlank(), onClick = { childId = "" }, label = { Text("Family") })
+                    FilterChip(selected = childId.isBlank(), onClick = { childId = "" }, label = { Text(tr("Family", "Famille")) })
                     vm.children.forEach { child ->
                         FilterChip(selected = childId == child.id, onClick = { childId = child.id }, label = { Text(child.name) })
                     }
                 }
-                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("What's the school thing?") }, singleLine = true)
-                Text("Category", color = Ink, fontWeight = FontWeight.Bold)
+                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("What's the school thing?", "Quel est l’élément scolaire ?")) }, singleLine = true)
+                Text(tr("Category", "Catégorie"), color = Ink, fontWeight = FontWeight.Bold)
                 ExposedDropdownMenuBox(
                     expanded = categoryMenuExpanded,
                     onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = if (category == customCategoryOption) "Custom…" else category,
+                        value = if (category == customCategoryOption) tr("Custom…", "Personnalisée…") else categoryLabel(category),
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
@@ -1074,7 +1063,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     ) {
                         Category.all.forEach { cat ->
                             DropdownMenuItem(
-                                text = { Text(cat) },
+                                text = { Text(categoryLabel(cat)) },
                                 leadingIcon = { Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(20.dp)) },
                                 onClick = {
                                     category = cat
@@ -1083,7 +1072,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Custom…") },
+                            text = { Text(tr("Custom…", "Personnalisée…")) },
                             leadingIcon = { Text("✨", fontSize = 20.sp) },
                             onClick = {
                                 category = customCategoryOption
@@ -1097,12 +1086,12 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                         value = customCategory,
                         onValueChange = { customCategory = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Custom category") },
-                        placeholder = { Text("e.g. Field Trip, Club, Fundraiser") },
+                        label = { Text(tr("Custom category", "Catégorie personnalisée")) },
+                        placeholder = { Text(tr("e.g. Field Trip, Club, Fundraiser", "p. ex. Sortie, Club, Collecte de fonds")) },
                         singleLine = true
                     )
                 }
-                Text("Emoji (optional)", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Emoji (optional)", "Émoji (facultatif)"), color = Ink, fontWeight = FontWeight.Bold)
                 OutlinedButton(
                     onClick = { showEmojiPicker = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -1111,9 +1100,9 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 ) {
                     Text(if (selectedEmoji.isBlank()) "🙂" else selectedEmoji, fontSize = 25.sp)
                     Spacer(Modifier.width(10.dp))
-                    Text(if (selectedEmoji.isBlank()) "Choose an emoji" else "Change emoji", modifier = Modifier.weight(1f))
+                    Text(if (selectedEmoji.isBlank()) tr("Choose an emoji", "Choisir un émoji") else tr("Change emoji", "Changer l’émoji"), modifier = Modifier.weight(1f))
                 }
-                Text("Date", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Date", "Date"), color = Ink, fontWeight = FontWeight.Bold)
                 OutlinedButton(
                     onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -1124,25 +1113,25 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
                         Text(
-                            date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
+                            date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)),
                             color = Ink,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Text("Tap to choose a date", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
+                        Text(tr("Tap to choose a date", "Touchez pour choisir une date"), color = Ink.copy(alpha = .55f), fontSize = 12.sp)
                     }
                 }
-                Text("Repeat", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Repeat", "Répétition"), color = Ink, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Repeat.all.forEach { value -> FilterChip(selected = repeat == value, onClick = { repeat = value }, label = { Text(value) }) }
+                    Repeat.all.forEach { value -> FilterChip(selected = repeat == value, onClick = { repeat = value }, label = { Text(repeatLabel(value)) }) }
                 }
-                Text("Reminder", color = Ink, fontWeight = FontWeight.Bold)
+                Text(tr("Reminder", "Rappel"), color = Ink, fontWeight = FontWeight.Bold)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Reminder.all.forEach { value -> FilterChip(selected = reminder == value, onClick = { reminder = value }, label = { Text(value) }) }
+                    Reminder.all.forEach { value -> FilterChip(selected = reminder == value, onClick = { reminder = value }, label = { Text(reminderLabel(value)) }) }
                 }
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Notes") })
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Notes", "Notes")) })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = needsHome, onCheckedChange = { needsHome = it })
-                    Text("Needs item from home", color = Ink)
+                    Text(tr("Needs item from home", "Objet requis de la maison"), color = Ink)
                 }
                 Button(
                     onClick = {
@@ -1168,7 +1157,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 ) {
                     Icon(Icons.Rounded.CheckCircle, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Save")
+                    Text(tr("Save", "Enregistrer"))
                 }
             }
         }
@@ -1177,11 +1166,11 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
     if (showEmojiPicker) {
         AlertDialog(
             onDismissRequest = { showEmojiPicker = false },
-            title = { Text("Choose an emoji") },
+            title = { Text(tr("Choose an emoji", "Choisir un émoji")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        "Pick something that will make this school thing easy to spot.",
+                        tr("Pick something that will make this school thing easy to spot.", "Choisissez quelque chose qui permettra de repérer facilement cet élément."),
                         color = Ink.copy(alpha = .65f),
                         fontSize = 13.sp
                     )
@@ -1204,14 +1193,14 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showEmojiPicker = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { showEmojiPicker = false }) { Text(tr("Close", "Fermer")) } },
             dismissButton = {
                 TextButton(
                     onClick = {
                         selectedEmoji = ""
                         showEmojiPicker = false
                     }
-                ) { Text("No emoji") }
+                ) { Text(tr("No emoji", "Aucun émoji")) }
             }
         )
     }
@@ -1237,9 +1226,9 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                         }
                         showDatePicker = false
                     }
-                ) { Text("Choose") }
+                ) { Text(tr("Choose", "Choisir")) }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(tr("Cancel", "Annuler")) } }
         ) {
             androidx.compose.material3.DatePicker(state = datePickerState, showModeToggle = true)
         }
@@ -1254,7 +1243,7 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item { Header("Calendar", "The week without the fridge blindness. ♥", note = "This week") }
+        item { Header(tr("Calendar", "Calendrier"), tr("The week without the fridge blindness. ♥", "La semaine sans l’angle mort du frigo. ♥"), note = tr("This week", "Cette semaine")) }
         items((0L..13L).toList()) { offset ->
             val date = today.plusDays(offset)
             val dayItems = vm.itemsFor(date)
@@ -1265,7 +1254,7 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
                     shape = RoundedCornerShape(18.dp)
                 ) {
                     Column(Modifier.padding(14.dp)) {
-                        Text(date.format(DateTimeFormatter.ofPattern("EEEE, MMM d")), color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)), color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
                         dayItems.forEach { SchoolRow(vm, it) }
                     }
                 }
@@ -1306,7 +1295,7 @@ private fun CollapsibleSettingsCard(
             }
             Icon(
                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                contentDescription = if (expanded) tr("Collapse $title", "Réduire $title") else tr("Expand $title", "Développer $title"),
                 tint = Ink.copy(alpha = .55f)
             )
         }
@@ -1323,7 +1312,9 @@ private fun SettingsScreen(
     vm: SchoolStuffViewModel,
     appLockEnabled: Boolean,
     onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
-    onTestAppLock: ((Boolean, String) -> Unit) -> Unit
+    onTestAppLock: ((Boolean, String) -> Unit) -> Unit,
+    appLanguage: String,
+    onChangeLanguage: (String) -> Unit
 ) {
     val context = LocalContext.current
     val repo = remember { CalendarProviderRepository(context) }
@@ -1349,9 +1340,9 @@ private fun SettingsScreen(
         notificationsEnabled = ReminderNotifications.areEnabled(context)
         notificationMessage = if (notificationsEnabled) {
             vm.rescheduleAllReminders()
-            "Notifications are ready."
+            tr("Notifications are ready.", "Les notifications sont prêtes.")
         } else {
-            "Notifications are still blocked. You can allow them in your phone settings."
+            tr("Notifications are still blocked. You can allow them in your phone settings.", "Les notifications sont toujours bloquées. Vous pouvez les autoriser dans les paramètres du téléphone.")
         }
     }
 
@@ -1379,9 +1370,9 @@ private fun SettingsScreen(
         calendars = result.toList()
         calendarListRevision++
         message = when {
-            !granted -> "Google Calendar is not connected."
-            result.isEmpty() -> "Connected, but Android has not exposed any visible Google calendars yet."
-            else -> "Connected. ${result.size} calendar${if (result.size == 1) "" else "s"} available."
+            !granted -> tr("Google Calendar is not connected.", "Google Agenda n’est pas connecté.")
+            result.isEmpty() -> tr("Connected, but Android has not exposed any visible Google calendars yet.", "Connecté, mais Android n’a pas encore affiché de calendriers Google visibles.")
+            else -> tr("Connected. ${result.size} calendar${if (result.size == 1) "" else "s"} available.", "Connecté. ${result.size} calendrier${if (result.size == 1) "" else "s"} disponible${if (result.size == 1) "" else "s"}.")
         }
         return result
     }
@@ -1396,7 +1387,7 @@ private fun SettingsScreen(
             if (wait > 0) delay(wait)
             if (refreshCalendarsOnce().isNotEmpty()) return
         }
-        message = "Calendar access is connected, but Android has not exposed the list yet. Keep this screen open and tap Refresh calendars."
+        message = tr("Calendar access is connected, but Android has not exposed the list yet. Keep this screen open and tap Refresh calendars.", "L’accès au calendrier est connecté, mais Android n’a pas encore affiché la liste. Gardez cet écran ouvert et touchez Actualiser les calendriers.")
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -1405,7 +1396,7 @@ private fun SettingsScreen(
         val readGranted = result[Manifest.permission.READ_CALENDAR] == true || repo.hasReadPermission()
         calendarPermissionGranted = readGranted
         if (readGranted) {
-            message = "Calendar access granted. Loading calendars…"
+            message = tr("Calendar access granted. Loading calendars…", "Accès au calendrier accordé. Chargement des calendriers…")
             calendarSyncing = true
             scope.launch {
                 refreshCalendarsWithRetry()
@@ -1414,7 +1405,7 @@ private fun SettingsScreen(
         } else {
             calendars = emptyList()
             calendarListRevision++
-            message = "Calendar permission was not granted."
+            message = tr("Calendar permission was not granted.", "L’autorisation d’accès au calendrier n’a pas été accordée.")
         }
     }
 
@@ -1455,14 +1446,44 @@ private fun SettingsScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("Settings", "Everything useful, without the giant wall of controls. ♥", note = "Tap a section to open it") }
+        item { Header(tr("Settings", "Paramètres"), tr("Everything useful, without the giant wall of controls. ♥", "Tout ce qui est utile, sans le mur géant d’options. ♥"), note = tr("Tap a section to open it", "Touchez une section pour l’ouvrir")) }
+        item {
+            CollapsibleSettingsCard(
+                title = tr("Language", "Langue"),
+                summary = if (appLanguage == AppLanguage.FRENCH) "Français" else "English",
+                icon = Icons.Rounded.Language,
+                accent = SchoolYellow,
+                expanded = expandedSettingsSection == "language",
+                onToggle = { expandedSettingsSection = if (expandedSettingsSection == "language") null else "language" }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        tr("Choose the language used throughout School Stuff.", "Choisissez la langue utilisée dans School Stuff."),
+                        color = Ink.copy(alpha = .68f),
+                        fontSize = 13.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = appLanguage == AppLanguage.ENGLISH,
+                            onClick = { onChangeLanguage(AppLanguage.ENGLISH) },
+                            label = { Text("English") }
+                        )
+                        FilterChip(
+                            selected = appLanguage == AppLanguage.FRENCH,
+                            onClick = { onChangeLanguage(AppLanguage.FRENCH) },
+                            label = { Text("Français") }
+                        )
+                    }
+                }
+            }
+        }
         item {
             CollapsibleSettingsCard(
                 title = "Google Calendar",
                 summary = when {
-                    !calendarPermissionGranted -> "Not connected"
-                    selected.isEmpty() -> "Connected · no calendars selected"
-                    else -> "Connected · ${selected.size} calendar${if (selected.size == 1) "" else "s"} selected"
+                    !calendarPermissionGranted -> tr("Not connected", "Non connecté")
+                    selected.isEmpty() -> tr("Connected · no calendars selected", "Connecté · aucun calendrier sélectionné")
+                    else -> tr("Connected · ${selected.size} calendar${if (selected.size == 1) "" else "s"} selected", "Connecté · ${selected.size} calendrier${if (selected.size == 1) "" else "s"} sélectionné${if (selected.size == 1) "" else "s"}")
                 },
                 icon = Icons.Rounded.CalendarMonth,
                 accent = SchoolBlue,
@@ -1474,7 +1495,7 @@ private fun SettingsScreen(
                             MockupArtImage(MockupAsset.BOOKS, Modifier.size(54.dp), "School calendar")
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                "School Stuff reads Google calendars already synced to this phone. Pick only the calendars you want to see.",
+                                tr("School Stuff reads Google calendars already synced to this phone. Pick only the calendars you want to see.", "School Stuff lit les calendriers Google déjà synchronisés avec ce téléphone. Choisissez seulement ceux que vous voulez voir."),
                                 color = Ink.copy(alpha = .68f),
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -1486,11 +1507,11 @@ private fun SettingsScreen(
                             }) {
                                 Icon(Icons.Rounded.CalendarMonth, null)
                                 Spacer(Modifier.width(6.dp))
-                                Text("Connect Calendar")
+                                Text(tr("Connect Calendar", "Connecter le calendrier"))
                             }
                         } else {
                             if (calendarSyncing) {
-                                Text("Loading calendars…", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                                Text(tr("Loading calendars…", "Chargement des calendriers…"), color = Ink.copy(alpha = .62f), fontSize = 12.sp)
                             }
 
                             val selectedVisible = calendars.filter { it.id in selected }
@@ -1505,25 +1526,25 @@ private fun SettingsScreen(
                                 ) {
                                     Column(Modifier.weight(1f)) {
                                         Text(
-                                            "Calendars shown in School Stuff · ${selectedVisible.size} selected",
+                                            tr("Calendars shown in School Stuff · ${selectedVisible.size} selected", "Calendriers affichés dans School Stuff · ${selectedVisible.size} sélectionné${if (selectedVisible.size == 1) "" else "s"}"),
                                             color = Ink,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp
                                         )
                                         if (selectedVisible.isEmpty()) {
-                                            Text("Tap to choose calendars", color = Ink.copy(alpha = .55f), fontSize = 11.sp)
+                                            Text(tr("Tap to choose calendars", "Touchez pour choisir les calendriers"), color = Ink.copy(alpha = .55f), fontSize = 11.sp)
                                         } else {
                                             selectedVisible.take(3).forEach { cal ->
                                                 Text("${cal.displayName} · ${cal.accountName}", color = Ink.copy(alpha = .58f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                             }
                                             if (selectedVisible.size > 3) {
-                                                Text("+${selectedVisible.size - 3} more", color = SchoolBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                                Text(tr("+${selectedVisible.size - 3} more", "+${selectedVisible.size - 3} de plus"), color = SchoolBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                             }
                                         }
                                     }
                                     Icon(
                                         if (calendarListExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                        if (calendarListExpanded) "Collapse calendars" else "Expand calendars",
+                                        if (calendarListExpanded) tr("Collapse calendars", "Réduire les calendriers") else tr("Expand calendars", "Développer les calendriers"),
                                         tint = Ink.copy(alpha = .62f)
                                     )
                                 }
@@ -1555,7 +1576,7 @@ private fun SettingsScreen(
                                                         defaultId = cal.id
                                                         vm.saveDefaultCalendarId(cal.id)
                                                     },
-                                                    label = { Text(if (defaultId == cal.id) "Writes here" else "Use") }
+                                                    label = { Text(if (defaultId == cal.id) tr("Writes here", "Écriture ici") else tr("Use", "Utiliser")) }
                                                 )
                                             }
                                         }
@@ -1570,21 +1591,21 @@ private fun SettingsScreen(
                                         refreshCalendarsWithRetry()
                                         calendarSyncing = false
                                     }
-                                }) { Text("Refresh calendars") }
+                                }) { Text(tr("Refresh calendars", "Actualiser les calendriers")) }
                                 OutlinedButton(onClick = {
                                     val imported = vm.importCalendarEvents(repo.importInstances(selected))
-                                    message = "$imported new calendar event${if (imported == 1) "" else "s"} imported."
-                                }, enabled = selected.isNotEmpty()) { Text("Import") }
+                                    message = tr("$imported new calendar event${if (imported == 1) "" else "s"} imported.", "$imported nouvel événement de calendrier importé${if (imported == 1) "" else "s"}.")
+                                }, enabled = selected.isNotEmpty()) { Text(tr("Import", "Importer")) }
                             }
                             Button(onClick = {
                                 val target = defaultId
                                 if (target == null) {
-                                    message = "Choose a selected calendar as the write destination first."
+                                    message = tr("Choose a selected calendar as the write destination first.", "Choisissez d’abord un calendrier sélectionné comme destination d’écriture.")
                                 } else {
                                     val count = vm.items.count { repo.upsertSchoolItem(target, it) }
-                                    message = "$count School Stuff events synced."
+                                    message = tr("$count School Stuff events synced.", "$count événements School Stuff synchronisés.")
                                 }
-                            }, enabled = defaultId != null) { Text("Sync School Stuff Out") }
+                            }, enabled = defaultId != null) { Text(tr("Sync School Stuff Out", "Synchroniser vers Google")) }
 
                             if (message.isNotBlank()) Text(message, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
                         }
@@ -1593,11 +1614,11 @@ private fun SettingsScreen(
         }
         item {
             CollapsibleSettingsCard(
-                title = "Notifications",
+                title = tr("Notifications", "Notifications"),
                 summary = if (notificationsEnabled) {
-                    "On · night before ${LocalTime.of(vm.nightReminderHour, vm.nightReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))} · morning ${LocalTime.of(vm.morningReminderHour, vm.morningReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}"
+                    tr("On · night before ${LocalTime.of(vm.nightReminderHour, vm.nightReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))} · morning ${LocalTime.of(vm.morningReminderHour, vm.morningReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}", "Activées · veille ${LocalTime.of(vm.nightReminderHour, vm.nightReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))} · matin ${LocalTime.of(vm.morningReminderHour, vm.morningReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}")
                 } else {
-                    "Off · tap to set up reminders"
+                    tr("Off · tap to set up reminders", "Désactivées · touchez pour configurer les rappels")
                 },
                 icon = Icons.Rounded.Notifications,
                 accent = SchoolGreen,
@@ -1610,13 +1631,13 @@ private fun SettingsScreen(
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    if (notificationsEnabled) "Notifications allowed" else "Notifications are off",
+                                    if (notificationsEnabled) tr("Notifications allowed", "Notifications autorisées") else tr("Notifications are off", "Notifications désactivées"),
                                     color = Ink,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    if (notificationsEnabled) "School Stuff can send the reminders chosen on your items."
-                                    else "Allow notifications so school reminders can reach you.",
+                                    if (notificationsEnabled) tr("School Stuff can send the reminders chosen on your items.", "School Stuff peut envoyer les rappels choisis pour vos éléments.")
+                                    else tr("Allow notifications so school reminders can reach you.", "Autorisez les notifications pour recevoir les rappels scolaires."),
                                     color = Ink.copy(alpha = .62f),
                                     fontSize = 12.sp
                                 )
@@ -1630,11 +1651,11 @@ private fun SettingsScreen(
                                 } else {
                                     notificationsEnabled = ReminderNotifications.areEnabled(context)
                                 }
-                            }) { Text("Allow notifications") }
+                            }) { Text(tr("Allow notifications", "Autoriser les notifications")) }
                         }
 
                         ReminderTimeRow(
-                            label = "Night before",
+                            label = tr("Night before", "La veille"),
                             hour = vm.nightReminderHour,
                             minute = vm.nightReminderMinute,
                             onClick = {
@@ -1648,7 +1669,7 @@ private fun SettingsScreen(
                             }
                         )
                         ReminderTimeRow(
-                            label = "Morning of",
+                            label = tr("Morning of", "Le matin même"),
                             hour = vm.morningReminderHour,
                             minute = vm.morningReminderMinute,
                             onClick = {
@@ -1662,14 +1683,14 @@ private fun SettingsScreen(
                             }
                         )
 
-                        Text("Default for new items", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text(tr("Default for new items", "Valeur par défaut des nouveaux éléments"), color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         ExposedDropdownMenuBox(
                             expanded = defaultReminderMenuExpanded,
                             onExpandedChange = { defaultReminderMenuExpanded = !defaultReminderMenuExpanded },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
-                                value = vm.defaultReminder,
+                                value = reminderLabel(vm.defaultReminder),
                                 onValueChange = {},
                                 readOnly = true,
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
@@ -1682,7 +1703,7 @@ private fun SettingsScreen(
                             ) {
                                 Reminder.all.forEach { choice ->
                                     DropdownMenuItem(
-                                        text = { Text(choice) },
+                                        text = { Text(reminderLabel(choice)) },
                                         onClick = {
                                             vm.updateDefaultReminder(choice)
                                             defaultReminderMenuExpanded = false
@@ -1696,22 +1717,22 @@ private fun SettingsScreen(
                             Button(onClick = {
                                 val shown = ReminderNotifications.showTest(context)
                                 notificationsEnabled = ReminderNotifications.areEnabled(context)
-                                notificationMessage = if (shown) "Test notification sent." else "Allow notifications first."
-                            }) { Text("Send test") }
+                                notificationMessage = if (shown) tr("Test notification sent.", "Notification d’essai envoyée.") else tr("Allow notifications first.", "Autorisez d’abord les notifications.")
+                            }) { Text(tr("Send test", "Envoyer un test")) }
                             OutlinedButton(onClick = {
                                 ReminderNotifications.ensureChannel(context)
                                 context.startActivity(
                                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                                 )
-                            }) { Text("Phone settings") }
+                            }) { Text(tr("Phone settings", "Paramètres du téléphone")) }
                         }
 
                         if (notificationMessage.isNotBlank()) {
                             Text(notificationMessage, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
                         }
                         Text(
-                            "Android may deliver scheduled reminders a little after the chosen time to save battery.",
+                            tr("Android may deliver scheduled reminders a little after the chosen time to save battery.", "Android peut envoyer les rappels programmés un peu après l’heure choisie afin d’économiser la batterie."),
                             color = Ink.copy(alpha = .55f),
                             fontSize = 11.sp
                         )
@@ -1720,8 +1741,8 @@ private fun SettingsScreen(
         }
         item {
             CollapsibleSettingsCard(
-                title = "Security",
-                summary = if (appLockEnabled) "App lock on · fingerprint, face, or phone lock" else "App lock off",
+                title = tr("Security", "Sécurité"),
+                summary = if (appLockEnabled) tr("App lock on · fingerprint, face, or phone lock", "Verrouillage activé · empreinte, visage ou téléphone") else tr("App lock off", "Verrouillage désactivé"),
                 icon = Icons.Rounded.Lock,
                 accent = SchoolPink,
                 expanded = expandedSettingsSection == "security",
@@ -1734,13 +1755,13 @@ private fun SettingsScreen(
                         Icon(Icons.Rounded.Face, contentDescription = null, tint = SchoolPink, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Fingerprint or face", color = Ink, fontWeight = FontWeight.Bold)
-                            Text("Android uses the biometric method enrolled on this phone, with PIN, pattern, or password as backup.", color = Ink.copy(alpha = .62f), fontSize = 12.sp)
+                            Text(tr("Fingerprint or face", "Empreinte ou visage"), color = Ink, fontWeight = FontWeight.Bold)
+                            Text(tr("Android uses the biometric method enrolled on this phone, with PIN, pattern, or password as backup.", "Android utilise la méthode biométrique configurée sur ce téléphone, avec le NIP, le schéma ou le mot de passe en secours."), color = Ink.copy(alpha = .62f), fontSize = 12.sp)
                         }
                     }
 
                     Text(
-                        "When enabled, School Stuff locks at launch and after it has been away for 30 seconds. Child information is hidden from the recent-apps preview.",
+                        tr("When enabled, School Stuff locks at launch and after it has been away for 30 seconds. Child information is hidden from the recent-apps preview.", "Lorsqu’il est activé, School Stuff se verrouille au démarrage et après 30 secondes en arrière-plan. Les renseignements des enfants sont masqués dans l’aperçu des applis récentes."),
                         color = Ink.copy(alpha = .66f),
                         fontSize = 12.sp
                     )
@@ -1748,23 +1769,23 @@ private fun SettingsScreen(
                     if (appLockEnabled) {
                         Button(onClick = {
                             onTestAppLock { _, message -> securityMessage = message }
-                        }) { Text("Test unlock") }
+                        }) { Text(tr("Test unlock", "Tester le déverrouillage")) }
                         OutlinedButton(onClick = {
                             onChangeAppLock(false) { _, message -> securityMessage = message }
-                        }) { Text("Turn off app lock") }
+                        }) { Text(tr("Turn off app lock", "Désactiver le verrouillage")) }
                     } else {
                         Button(onClick = {
                             onChangeAppLock(true) { _, message -> securityMessage = message }
                         }) {
                             Icon(Icons.Rounded.Lock, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Turn on app lock")
+                            Text(tr("Turn on app lock", "Activer le verrouillage"))
                         }
                     }
 
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
-                    }) { Text("Phone security settings") }
+                    }) { Text(tr("Phone security settings", "Paramètres de sécurité du téléphone")) }
 
                     if (securityMessage.isNotBlank()) {
                         Text(securityMessage, color = Ink.copy(alpha = .7f), fontSize = 12.sp)
@@ -1774,16 +1795,16 @@ private fun SettingsScreen(
         }
         item {
             CollapsibleSettingsCard(
-                title = "About School Stuff",
-                summary = "Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}",
+                title = tr("About School Stuff", "À propos de School Stuff"),
+                summary = tr("Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "Version ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"),
                 icon = Icons.Rounded.School,
                 accent = SchoolBlue,
                 expanded = expandedSettingsSection == "about",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "about") null else "about" }
             ) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Compact settings, notification controls, and optional fingerprint or face app lock.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                        Text(tr("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "School Stuff ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"), color = Ink, fontWeight = FontWeight.Bold)
+                        Text(tr("Compact settings, notification controls, and optional fingerprint or face app lock.", "Paramètres compacts, réglages des notifications et verrouillage facultatif par empreinte ou visage."), color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                     }
             }
         }

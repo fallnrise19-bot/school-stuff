@@ -1,5 +1,6 @@
 package ca.creativepixels.schoolstuff
 
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -43,6 +44,10 @@ class MainActivity : FragmentActivity() {
     private var lastStoppedAt: Long? = null
     private var pendingAuthentication: ((Boolean, String) -> Unit)? = null
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = LocalStore(this)
@@ -56,7 +61,7 @@ class MainActivity : FragmentActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     authenticationInProgress = false
-                    pendingAuthentication?.invoke(true, "Unlocked.")
+                    pendingAuthentication?.invoke(true, tr("Unlocked.", "Déverrouillée."))
                     pendingAuthentication = null
                 }
 
@@ -73,7 +78,7 @@ class MainActivity : FragmentActivity() {
             appUnlocked = true
             promptWhenResumed = false
             store.setAppLockEnabled(false)
-            Toast.makeText(this, "App lock was turned off because phone security is no longer set up.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, tr("App lock was turned off because phone security is no longer set up.", "Le verrouillage de l’appli a été désactivé, car la sécurité du téléphone n’est plus configurée."), Toast.LENGTH_LONG).show()
         }
 
         updateRecentsPrivacy()
@@ -84,7 +89,9 @@ class MainActivity : FragmentActivity() {
                     vm = vm,
                     appLockEnabled = appLockEnabled,
                     onChangeAppLock = ::changeAppLock,
-                    onTestAppLock = ::testAppLock
+                    onTestAppLock = ::testAppLock,
+                    appLanguage = store.getAppLanguage(),
+                    onChangeLanguage = ::changeLanguage
                 )
             } else {
                 SchoolStuffTheme {
@@ -96,14 +103,14 @@ class MainActivity : FragmentActivity() {
                         ) {
                             Icon(Icons.Rounded.Lock, contentDescription = null, tint = SchoolBlue)
                             Spacer(Modifier.height(14.dp))
-                            Text("School Stuff is locked", color = Ink, fontWeight = FontWeight.Black, fontSize = 24.sp)
-                            Text("Use your fingerprint, face, or phone screen lock to continue.", color = Ink.copy(alpha = .65f))
+                            Text(tr("School Stuff is locked", "School Stuff est verrouillée"), color = Ink, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                            Text(tr("Use your fingerprint, face, or phone screen lock to continue.", "Utilisez votre empreinte, votre visage ou le verrouillage de l’écran pour continuer."), color = Ink.copy(alpha = .65f))
                             if (lockMessage.isNotBlank()) {
                                 Spacer(Modifier.height(8.dp))
                                 Text(lockMessage, color = SchoolRed, fontSize = 12.sp)
                             }
                             Spacer(Modifier.height(18.dp))
-                            Button(onClick = ::requestUnlock) { Text("Unlock") }
+                            Button(onClick = ::requestUnlock) { Text(tr("Unlock", "Déverrouiller")) }
                         }
                     }
                 }
@@ -136,7 +143,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun requestUnlock() {
-        authenticate("Unlock School Stuff") { success, message ->
+        authenticate(tr("Unlock School Stuff", "Déverrouiller School Stuff")) { success, message ->
             if (success) {
                 appUnlocked = true
                 lockMessage = ""
@@ -147,13 +154,13 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun changeAppLock(enable: Boolean, result: (Boolean, String) -> Unit) {
-        authenticate(if (enable) "Turn on School Stuff lock" else "Turn off School Stuff lock") { success, message ->
+        authenticate(if (enable) tr("Turn on School Stuff lock", "Activer le verrouillage de School Stuff") else tr("Turn off School Stuff lock", "Désactiver le verrouillage de School Stuff")) { success, message ->
             if (success) {
                 store.setAppLockEnabled(enable)
                 appLockEnabled = enable
                 appUnlocked = true
                 updateRecentsPrivacy()
-                result(true, if (enable) "App lock is on." else "App lock is off.")
+                result(true, if (enable) tr("App lock is on.", "Le verrouillage est activé.") else tr("App lock is off.", "Le verrouillage est désactivé."))
             } else {
                 result(false, message)
             }
@@ -161,8 +168,8 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun testAppLock(result: (Boolean, String) -> Unit) {
-        authenticate("Test School Stuff unlock") { success, message ->
-            result(success, if (success) "Unlock test worked." else message)
+        authenticate(tr("Test School Stuff unlock", "Tester le déverrouillage de School Stuff")) { success, message ->
+            result(success, if (success) tr("Unlock test worked.", "Le test de déverrouillage a réussi.") else message)
         }
     }
 
@@ -179,12 +186,12 @@ class MainActivity : FragmentActivity() {
         val promptBuilder = BiometricPrompt.PromptInfo.Builder()
                 .setTitle(title)
                 .setSubtitle(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) "Use fingerprint, face, PIN, pattern, or password"
-                    else "Use fingerprint or face"
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) tr("Use fingerprint, face, PIN, pattern, or password", "Utilisez votre empreinte, votre visage, votre NIP, votre schéma ou votre mot de passe")
+                    else tr("Use fingerprint or face", "Utilisez votre empreinte ou votre visage")
                 )
                 .setAllowedAuthenticators(authenticators)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            promptBuilder.setNegativeButtonText("Cancel")
+            promptBuilder.setNegativeButtonText(tr("Cancel", "Annuler"))
         }
         biometricPrompt.authenticate(promptBuilder.build())
     }
@@ -198,10 +205,17 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun availabilityMessage(code: Int): String = when (code) {
-        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "Set up a fingerprint, face, or phone screen lock in Samsung Settings first."
-        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "This phone does not provide biometric security."
-        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Phone security is temporarily unavailable. Please try again."
-        else -> "Phone security is not available right now."
+        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> tr("Set up a fingerprint, face, or phone screen lock in Samsung Settings first.", "Configurez d’abord une empreinte, un visage ou un verrouillage d’écran dans les paramètres Samsung.")
+        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> tr("This phone does not provide biometric security.", "Ce téléphone ne prend pas en charge la sécurité biométrique.")
+        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> tr("Phone security is temporarily unavailable. Please try again.", "La sécurité du téléphone est temporairement indisponible. Réessayez.")
+        else -> tr("Phone security is not available right now.", "La sécurité du téléphone n’est pas disponible pour le moment.")
+    }
+
+    private fun changeLanguage(language: String) {
+        if (language != store.getAppLanguage()) {
+            store.setAppLanguage(language)
+            recreate()
+        }
     }
 
     private fun updateRecentsPrivacy() {

@@ -11,21 +11,24 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import ca.creativepixels.schoolstuff.trFor
 import ca.creativepixels.schoolstuff.MainActivity
 import ca.creativepixels.schoolstuff.R
+import ca.creativepixels.schoolstuff.data.LocalStore
 
 object ReminderNotifications {
     const val CHANNEL_ID = "school_reminders"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val language = LocalStore(context).getAppLanguage()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "School reminders",
+                trFor(language, "School reminders", "Rappels scolaires"),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = "School Stuff reminders" }
+            ).apply { description = trFor(language, "School Stuff reminders", "Rappels de School Stuff") }
         )
     }
 
@@ -48,7 +51,8 @@ object ReminderNotifications {
     fun showTest(context: Context): Boolean {
         ensureChannel(context)
         if (!areEnabled(context)) return false
-        val body = "Notifications are working. One less thing for your brain to carry. ♥"
+        val language = LocalStore(context).getAppLanguage()
+        val body = trFor(language, "Notifications are working. One less thing for your brain to carry. ♥", "Les notifications fonctionnent. Une chose de moins à garder en tête. ♥")
         NotificationManagerCompat.from(context).notify(210021, build(context, body))
         return true
     }

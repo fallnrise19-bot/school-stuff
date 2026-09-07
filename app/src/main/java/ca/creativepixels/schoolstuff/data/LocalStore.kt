@@ -6,6 +6,17 @@ import com.google.gson.reflect.TypeToken
 
 class LocalStore(context: Context) {
     private val prefs = context.getSharedPreferences("school_stuff_store", Context.MODE_PRIVATE)
+
+    fun getAppLanguage(): String = prefs.getString("app_language", "en")
+        .orEmpty()
+        .takeIf { it == "en" || it == "fr" }
+        ?: "en"
+
+    fun setAppLanguage(language: String) {
+        if (language == "en" || language == "fr") {
+            prefs.edit().putString("app_language", language).commit()
+        }
+    }
     private val gson = Gson()
 
     fun loadChildren(): List<ChildProfile> = readList("children")

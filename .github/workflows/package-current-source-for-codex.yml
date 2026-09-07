@@ -17,7 +17,7 @@ jobs:
       - name: Create clean source ZIP
         run: |
           mkdir -p out
-          zip -r out/SchoolStuff-0.1.13-build14-current-source.zip . \
+          zip -r out/SchoolStuff-0.1.14-build15-current-source.zip . \
             -x '.git/*' \
             -x 'out/*' \
             -x '**/build/*' \
@@ -27,7 +27,7 @@ jobs:
       - name: Upload source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: SchoolStuff-0.1.13-build14-current-source
-          path: out/SchoolStuff-0.1.13-build14-current-source.zip
+          name: SchoolStuff-0.1.14-build15-current-source
+          path: out/SchoolStuff-0.1.14-build15-current-source.zip
           if-no-files-found: error
           retention-days: 14

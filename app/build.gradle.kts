@@ -22,8 +22,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.1.13"
+        versionCode = 15
+        versionName = "0.1.14"
     }
 
     buildFeatures {
@@ -77,7 +77,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    // Retained for the inactive V2 prototype source. The live gallery uses bounded software bitmap decoding.
     implementation("io.coil-kt:coil-compose:2.7.0")
-
     testImplementation("junit:junit:4.13.2")
 }

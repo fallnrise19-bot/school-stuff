@@ -6,11 +6,17 @@ Read this before changing anything. Continue the existing Android project; do no
 
 - GitHub repo: `fallnrise19-bot/school-stuff`
 - Android package: `ca.creativepixels.schoolstuff`
-- Current app version: **0.1.13 / versionCode 14**
+- Current app version: **0.1.14 / versionCode 15**
 - The Google Drive folder is **School Stuff**.
 - A current source ZIP is being placed in that Drive folder for Codex as well.
 
 ## CRITICAL CURRENT BUG — DEVICE VERIFICATION REQUIRED
+
+Samsung testing confirmed that 0.1.13/build 14 still closes from a child profile and Samsung displays “School Stuff closed because this app has a bug.” This confirms an actual process crash, not merely Android Back navigation or the launcher stealing a gesture. The user identified that the failure began when the popup/image gallery replaced the old filename-only Papers & Memories list.
+
+0.1.14/build 15 therefore isolates all gallery work in `DocumentGalleryScreen.kt` behind a real `Gallery(childId)` destination. `ChildScreen` no longer initializes the document picker, URI provider calls, image loader, bitmap decoder, preview dialog, or gallery scroll state. It displays only a document count and a button that navigates to the gallery. The live gallery no longer uses Coil for user files; it decodes only visible rows, on `Dispatchers.IO`, into bounded software bitmaps (320px thumbnails and 1400px previews) and catches unreadable/expired URIs. This avoids both eager memory pressure and Samsung hardware-bitmap rendering paths while keeping artwork and photos viewable.
+
+Build 15 also installs a debug-only uncaught-exception recorder. If the device still crashes, reopening School Stuff presents the exact Java/Kotlin stack trace with a `Copy report` button. Do not guess at another fix if that report is available; use it.
 
 The child-profile navigation/gesture problem was reworked in 0.1.13 and is **not considered closed until the user verifies it on the Samsung device**.
 
@@ -18,11 +24,11 @@ User test on 0.1.12: while inside a child's profile, swiping/scrolling with a si
 
 A `BackHandler(enabled = addingThing || childPage != null)` was added in 0.1.12 so system Back should return from Add Thing or Child Profile to the app rather than finish the Activity. The user explicitly confirmed that attempt did not solve the actual problem.
 
-0.1.13 removes that local-state/BackHandler navigation architecture. `SchoolStuffNavigator` now owns a real internal history outside the composable tree, and `MainActivity` registers an `OnBackPressedCallback` before composing the UI. The callback is enabled synchronously whenever the internal back stack is non-empty, so a genuine system Back gesture pops exactly one School Stuff destination. The root Scaffold also uses `WindowInsets.safeContent`, keeping gesture-driven content outside Android's back/home gesture insets on edge-to-edge Samsung/Android devices. Predictive back is explicitly enabled on `MainActivity`.
+0.1.13 removed that local-state/BackHandler navigation architecture. `SchoolStuffNavigator` owns a real internal history outside the composable tree, and `MainActivity` registers an `OnBackPressedCallback` before composing the UI. The callback is enabled synchronously whenever the internal back stack is non-empty, so a genuine system Back gesture pops exactly one School Stuff destination. The root Scaffold also uses `WindowInsets.safeContent`, keeping gesture-driven content outside Android's back/home gesture insets on edge-to-edge Samsung/Android devices. Predictive back is explicitly enabled on `MainActivity`.
 
 Unit tests cover Main → Child → Add Thing → Child → Main back-stack order and callback availability. GitHub CI now runs these tests before assembling the debug APK.
 
-The next verification must test both cases separately: diagonal/sideways scrolling within a child profile must not leave School Stuff, and a deliberate Android Back gesture must return exactly one level. If 0.1.13 still reaches the launcher during an ordinary scroll, establish whether Samsung is invoking the mandatory Home gesture from the bottom inset before changing navigation again; Android does not allow apps to intercept that gesture.
+The next verification must first scroll a child profile normally. Then open Papers & Memories, add/view an image, return to the child profile, and scroll again. A deliberate Android Back gesture should return exactly one level. If a crash occurs, reopen the app and copy the diagnostic report.
 
 Do not re-add another guessed local `BackHandler` or `onResume` patch.
 
@@ -135,12 +141,12 @@ After the child-profile swipe/close bug is fixed, the user wants to continue sub
 - Inspect the current source before patching.
 - Keep working features intact, especially the calendar fix.
 - Build after meaningful changes and inspect compiler/runtime implications instead of handing the user speculative code.
-- For the swipe/close bug, 0.1.12 is known to have failed in real-device testing; 0.1.13 still requires real-device confirmation.
+- For the swipe/close bug, 0.1.12 and 0.1.13 both failed in real-device testing. 0.1.14 isolates/rebuilds the gallery path and requires device confirmation.
 
 ## CURRENT HANDOFF POINT
 
 The immediate next task is:
 
-**Have the user install and test 0.1.13 build 14 on the Android/Samsung phone, then record whether diagonal scrolling and a deliberate Back gesture behave separately as intended.**
+**Have the user install and test 0.1.14 build 15 on the Android/Samsung phone. Verify child-profile scrolling before and after opening the gallery. If it crashes, reopen the app and copy the captured report.**
 
 Once that is stable, proceed with account sharing, subscription architecture, and the next requested features.

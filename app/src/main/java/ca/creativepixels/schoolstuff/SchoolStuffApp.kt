@@ -1,14 +1,11 @@
 package ca.creativepixels.schoolstuff
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
-import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,13 +54,10 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalPizza
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -102,25 +96,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import ca.creativepixels.schoolstuff.calendar.CalendarProviderRepository
 import ca.creativepixels.schoolstuff.data.Category
 import ca.creativepixels.schoolstuff.data.ChildProfile
 import ca.creativepixels.schoolstuff.data.DeviceCalendar
-import ca.creativepixels.schoolstuff.data.DocumentType
 import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
-import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -170,7 +158,13 @@ internal fun SchoolStuffApp(vm: SchoolStuffViewModel, navigator: SchoolStuffNavi
                         vm,
                         destination.childId,
                         onBack = { navigator.navigateBack() },
-                        onAddThing = navigator::openAddThing
+                        onAddThing = navigator::openAddThing,
+                        onOpenGallery = { navigator.openGallery(destination.childId) }
+                    )
+                    is SchoolStuffDestination.Gallery -> DocumentGalleryScreen(
+                        vm = vm,
+                        childId = destination.childId,
+                        onBack = { navigator.navigateBack() }
                     )
                     SchoolStuffDestination.Main -> when (tab) {
                         MainTab.HOME -> HomeScreen(vm, onAdd = navigator::openAddThing, onChild = navigator::openChild)
@@ -534,25 +528,15 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
 }
 
 @Composable
-private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () -> Unit, onAddThing: () -> Unit) {
+private fun ChildScreen(
+    vm: SchoolStuffViewModel,
+    childId: String,
+    onBack: () -> Unit,
+    onAddThing: () -> Unit,
+    onOpenGallery: () -> Unit
+) {
     val child = vm.child(childId) ?: return
-    val context = LocalContext.current
-    var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
     var editing by remember { mutableStateOf(false) }
-    var previewDocument by remember { mutableStateOf<SchoolDocument?>(null) }
-    var galleryOpen by remember { mutableStateOf(false) }
-
-    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            val name = runCatching {
-                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-                    if (c.moveToFirst()) c.getString(0) else null
-                }
-            }.getOrNull() ?: "School file"
-            vm.addDocument(SchoolDocument(childId = childId, title = name, type = selectedDocType, uri = uri.toString()))
-        }
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -675,7 +659,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                         val childDocs = vm.documents.filter { it.childId == childId }
                         if (childDocs.isEmpty()) {
                             Text(
-                                "Nothing saved here yet.",
+                                "Save artwork, report cards, photos and school forms here.",
                                 color = Ink.copy(alpha = .58f),
                                 modifier = Modifier.padding(vertical = 6.dp)
                             )
@@ -691,126 +675,13 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                                 color = Ink.copy(alpha = .65f),
                                 fontSize = 13.sp
                             )
-                            OutlinedButton(onClick = { galleryOpen = true }) {
-                                Icon(Icons.Rounded.PhotoCamera, null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Open Gallery")
-                            }
                         }
-                        OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/*", "application/pdf")) }) {
-                            Icon(Icons.Rounded.UploadFile, null)
+                        OutlinedButton(onClick = onOpenGallery) {
+                            Icon(Icons.Rounded.PhotoCamera, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Add Photo or File")
+                            Text(if (childDocs.isEmpty()) "Open Gallery & Add" else "Open Gallery")
                         }
                     }
-                }
-            }
-        }
-    }
-
-
-    if (galleryOpen) {
-        Dialog(onDismissRequest = { galleryOpen = false }) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shape = RoundedCornerShape(22.dp)
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "${child.name}'s Gallery",
-                            color = Ink,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = { galleryOpen = false }) { Text("Close") }
-                    }
-                    Row(
-                        Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        DocumentType.all.forEach { type ->
-                            FilterChip(
-                                selected = selectedDocType == type,
-                                onClick = { selectedDocType = type },
-                                label = { Text(type) }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    val galleryDocs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
-                    if (galleryDocs.isEmpty()) {
-                        Text(
-                            "Nothing saved in $selectedDocType yet.",
-                            color = Ink.copy(alpha = .58f),
-                            modifier = Modifier.padding(vertical = 18.dp)
-                        )
-                    } else {
-                        Text(
-                            "Tap an item to enlarge or open it.",
-                            color = Ink.copy(alpha = .58f),
-                            fontSize = 12.sp
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            galleryDocs.forEachIndexed { index, doc ->
-                                DocumentGalleryTile(
-                                    doc = doc,
-                                    index = index,
-                                    onOpenImage = { previewDocument = doc },
-                                    onRemove = { vm.deleteDocument(doc.id) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    previewDocument?.let { doc ->
-        Dialog(onDismissRequest = { previewDocument = null }) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shape = RoundedCornerShape(22.dp)
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            friendlyDocumentLabel(doc, 0),
-                            color = Ink,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = { previewDocument = null }) { Text("Close") }
-                    }
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(Uri.parse(doc.uri))
-                            .size(1600)
-                            .crossfade(false)
-                            .build(),
-                        contentDescription = doc.title,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(500.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Paper),
-                        contentScale = ContentScale.Fit
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        friendlyDocumentDate(doc),
-                        color = Ink.copy(alpha = .55f),
-                        fontSize = 12.sp
-                    )
                 }
             }
         }
@@ -822,114 +693,6 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
 }
 
 @Composable
-private fun DocumentGalleryTile(
-    doc: SchoolDocument,
-    index: Int,
-    onOpenImage: () -> Unit,
-    onRemove: () -> Unit
-) {
-    val context = LocalContext.current
-    val mimeType = remember(doc.uri) {
-        runCatching { context.contentResolver.getType(Uri.parse(doc.uri)) }.getOrNull().orEmpty()
-    }
-    val isImage = mimeType.startsWith("image/") || doc.title.endsWith(".png", true) ||
-        doc.title.endsWith(".jpg", true) || doc.title.endsWith(".jpeg", true) ||
-        doc.title.endsWith(".webp", true) || doc.title.endsWith(".gif", true)
-
-    Card(
-        modifier = Modifier.width(118.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(Modifier.padding(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(92.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isImage) Paper else SoftBlue)
-                    .clickable {
-                        if (isImage) {
-                            onOpenImage()
-                        } else {
-                            openDocumentExternally(context, doc, mimeType)
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (isImage) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(Uri.parse(doc.uri))
-                            .size(320)
-                            .crossfade(false)
-                            .build(),
-                        contentDescription = doc.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            documentIcon(doc.type),
-                            contentDescription = null,
-                            tint = SchoolBlue,
-                            modifier = Modifier.size(34.dp)
-                        )
-                        Text("Open file", color = Ink.copy(alpha = .62f), fontSize = 11.sp)
-                    }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                friendlyDocumentLabel(doc, index),
-                color = Ink,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(friendlyDocumentDate(doc), color = Ink.copy(alpha = .48f), fontSize = 10.sp)
-            TextButton(
-                onClick = onRemove,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-            ) {
-                Text("Remove", fontSize = 11.sp)
-            }
-        }
-    }
-}
-
-private fun friendlyDocumentLabel(doc: SchoolDocument, index: Int): String {
-    val genericName = doc.title.startsWith("file_", ignoreCase = true) ||
-        doc.title.matches(Regex(".*[0-9a-fA-F]{16,}.*"))
-    if (!genericName && doc.title.length <= 28) return doc.title
-
-    val singular = when (doc.type) {
-        DocumentType.REPORT_CARD -> "Report Card"
-        DocumentType.ARTWORK -> "Artwork"
-        DocumentType.PHOTO -> "Photo"
-        else -> "Form"
-    }
-    return "$singular ${index + 1}"
-}
-
-private fun friendlyDocumentDate(doc: SchoolDocument): String =
-    java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
-        .format(java.util.Date(doc.addedAtMillis))
-
-private fun openDocumentExternally(context: android.content.Context, doc: SchoolDocument, knownMime: String) {
-    val uri = Uri.parse(doc.uri)
-    val mime = knownMime.ifBlank { context.contentResolver.getType(uri).orEmpty().ifBlank { "*/*" } }
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(uri, mime)
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    runCatching { context.startActivity(Intent.createChooser(intent, "Open school file")) }
-}
-
-@Composable
 private fun InfoLine(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = SchoolBlue, modifier = Modifier.size(22.dp))
@@ -937,13 +700,6 @@ private fun InfoLine(icon: ImageVector, label: String, value: String) {
         Text("$label:", color = Ink.copy(alpha = .62f), fontSize = 13.sp, modifier = Modifier.width(112.dp))
         Text(value, color = Ink, fontSize = 13.sp, modifier = Modifier.weight(1f))
     }
-}
-
-private fun documentIcon(type: String): ImageVector = when (type) {
-    DocumentType.REPORT_CARD -> Icons.Rounded.Star
-    DocumentType.ARTWORK -> Icons.Rounded.Palette
-    DocumentType.PHOTO -> Icons.Rounded.PhotoCamera
-    else -> Icons.Rounded.Description
 }
 
 @Composable

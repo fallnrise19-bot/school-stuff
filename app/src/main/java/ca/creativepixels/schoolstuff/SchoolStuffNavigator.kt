@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 internal sealed interface SchoolStuffDestination {
     data object Main : SchoolStuffDestination
     data class Child(val childId: String) : SchoolStuffDestination
+    data class Gallery(val childId: String) : SchoolStuffDestination
     data object AddThing : SchoolStuffDestination
 }
 
@@ -37,6 +38,10 @@ internal class SchoolStuffNavigator {
 
     fun openAddThing() {
         navigateTo(SchoolStuffDestination.AddThing)
+    }
+
+    fun openGallery(childId: String) {
+        navigateTo(SchoolStuffDestination.Gallery(childId))
     }
 
     fun navigateBack(): Boolean {

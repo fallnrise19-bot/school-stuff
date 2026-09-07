@@ -32,4 +32,18 @@ class SchoolStuffNavigatorTest {
 
         assertEquals(listOf(false, true, false), availability)
     }
+
+    @Test
+    fun galleryIsASeparateChildLevelDestination() {
+        val navigator = SchoolStuffNavigator()
+
+        navigator.openChild("child-3")
+        navigator.openGallery("child-3")
+
+        assertEquals(SchoolStuffDestination.Gallery("child-3"), navigator.currentDestination)
+        assertTrue(navigator.navigateBack())
+        assertEquals(SchoolStuffDestination.Child("child-3"), navigator.currentDestination)
+        assertTrue(navigator.navigateBack())
+        assertEquals(SchoolStuffDestination.Main, navigator.currentDestination)
+    }
 }

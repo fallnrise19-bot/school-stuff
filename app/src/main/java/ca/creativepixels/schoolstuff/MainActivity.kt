@@ -10,6 +10,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (BuildConfig.DEBUG) CrashDiagnostics.install(this)
+
         val navigator = SchoolStuffNavigator()
         val internalNavigationBackCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
@@ -24,6 +26,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: SchoolStuffViewModel = viewModel()
             SchoolStuffApp(vm, navigator)
+        }
+
+        if (BuildConfig.DEBUG) {
+            window.decorView.post { CrashDiagnostics.showPending(this) }
         }
     }
 }

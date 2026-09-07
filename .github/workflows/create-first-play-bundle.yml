@@ -1,0 +1,115 @@
+name: Create First ParentBell Play Bundle
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  create-play-bundle:
+    if: github.event.head_commit.message == 'Create first ParentBell Play bundle'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 platform
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Create private ParentBell upload key
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_dir="$RUNNER_TEMP/parentbell-play-key"
+          mkdir -p "$key_dir"
+          key_path="$key_dir/ParentBell-upload-key.jks"
+          credentials_path="$key_dir/ParentBell-upload-key-KEEP-SAFE.txt"
+          password="$(openssl rand -hex 24)"
+          alias_name="parentbell-upload"
+
+          echo "::add-mask::$password"
+          keytool -genkeypair \
+            -keystore "$key_path" \
+            -storetype JKS \
+            -storepass "$password" \
+            -keypass "$password" \
+            -alias "$alias_name" \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -dname "CN=ParentBell Upload Key, OU=Mobile Apps, O=Creative Pixels, L=Ottawa, ST=Ontario, C=CA"
+
+          fingerprint="$(keytool -list -v -keystore "$key_path" -storepass "$password" -alias "$alias_name" | sed -n 's/^[[:space:]]*SHA256: //p')"
+          {
+            echo "PARENTBELL GOOGLE PLAY UPLOAD KEY"
+            echo
+            echo "Keep this file and ParentBell-upload-key.jks private and together."
+            echo "Do not use the Project Maple key for ParentBell."
+            echo
+            echo "Key file: ParentBell-upload-key.jks"
+            echo "Key alias: $alias_name"
+            echo "Keystore password: $password"
+            echo "Key password: $password"
+            echo "Certificate SHA-256: $fingerprint"
+            echo "Application ID: ca.creativepixels.schoolstuff"
+          } > "$credentials_path"
+          chmod 600 "$key_path" "$credentials_path"
+
+          echo "PARENTBELL_UPLOAD_KEYSTORE=$key_path" >> "$GITHUB_ENV"
+          echo "PARENTBELL_UPLOAD_STORE_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "PARENTBELL_UPLOAD_KEY_ALIAS=$alias_name" >> "$GITHUB_ENV"
+          echo "PARENTBELL_UPLOAD_KEY_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "PARENTBELL_KEY_DIR=$key_dir" >> "$GITHUB_ENV"
+
+      - name: Test and build signed release bundle
+        run: gradle :app:testDebugUnitTest :app:bundleRelease --stacktrace
+
+      - name: Verify and package Play bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          output_dir="$RUNNER_TEMP/parentbell-play-output"
+          mkdir -p "$output_dir"
+          bundle_path="app/build/outputs/bundle/release/app-release.aab"
+          output_bundle="$output_dir/ParentBell-0.1.9-build29-release.aab"
+          cp "$bundle_path" "$output_bundle"
+          jarsigner -verify -verbose -certs "$output_bundle" > "$output_dir/signature-verification.txt"
+          sha256sum "$output_bundle" > "$output_dir/ParentBell-0.1.9-build29-release.sha256.txt"
+          {
+            echo "ParentBell Google Play internal-test bundle"
+            echo "Version: 0.1.9-internal-test"
+            echo "Version code: 29"
+            echo "Target SDK: 36"
+            echo "Application ID: ca.creativepixels.schoolstuff"
+          } > "$output_dir/bundle-details.txt"
+          echo "PARENTBELL_BUNDLE_OUTPUT=$output_dir" >> "$GITHUB_ENV"
+
+      - name: Upload signed Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParentBell-Play-bundle-build29
+          path: ${{ env.PARENTBELL_BUNDLE_OUTPUT }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload private key backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParentBell-upload-key-backup
+          path: ${{ env.PARENTBELL_KEY_DIR }}
+          if-no-files-found: error
+          retention-days: 30

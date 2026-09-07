@@ -14,16 +14,27 @@ if (!stableDebugKeystore.exists() && stableDebugKeystoreB64.exists()) {
     )
 }
 
+val playKeystorePath = System.getenv("PARENTBELL_UPLOAD_KEYSTORE")
+val playStorePassword = System.getenv("PARENTBELL_UPLOAD_STORE_PASSWORD")
+val playKeyAlias = System.getenv("PARENTBELL_UPLOAD_KEY_ALIAS")
+val playKeyPassword = System.getenv("PARENTBELL_UPLOAD_KEY_PASSWORD")
+val playSigningReady = listOf(
+    playKeystorePath,
+    playStorePassword,
+    playKeyAlias,
+    playKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "ca.creativepixels.schoolstuff"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 28
-        versionName = "0.1.8-settings-cleanup"
+        targetSdk = 36
+        versionCode = 29
+        versionName = "0.1.9-internal-test"
     }
 
     buildFeatures {
@@ -43,6 +54,14 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (playSigningReady) {
+            create("playRelease") {
+                storeFile = file(playKeystorePath!!)
+                storePassword = playStorePassword
+                keyAlias = playKeyAlias
+                keyPassword = playKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -50,7 +69,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         getByName("release") {
+            isDebuggable = false
             isMinifyEnabled = false
+            if (playSigningReady) {
+                signingConfig = signingConfigs.getByName("playRelease")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

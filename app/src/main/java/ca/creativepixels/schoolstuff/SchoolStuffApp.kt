@@ -1,6 +1,7 @@
 package ca.creativepixels.schoolstuff
 
 import android.Manifest
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,7 +9,9 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.Build
 import android.provider.CalendarContract
+import android.provider.Settings
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -110,6 +113,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import ca.creativepixels.schoolstuff.calendar.CalendarProviderRepository
 import ca.creativepixels.schoolstuff.data.Category
 import ca.creativepixels.schoolstuff.data.ChildProfile
@@ -121,12 +127,14 @@ import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
 import ca.creativepixels.schoolstuff.data.TransportationInfo
 import ca.creativepixels.schoolstuff.data.TransportationMode
+import ca.creativepixels.schoolstuff.notifications.ReminderNotifications
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -949,6 +957,19 @@ private fun documentIcon(type: String): ImageVector = when (type) {
 }
 
 @Composable
+private fun ReminderTimeRow(label: String, hour: Int, minute: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        OutlinedButton(onClick = onClick) {
+            Text(LocalTime.of(hour, minute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))
+        }
+    }
+}
+
+@Composable
 private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: (ChildProfile) -> Unit) {
     var grade by remember { mutableStateOf(child.grade) }
     var teacher by remember { mutableStateOf(child.teacherName) }
@@ -991,7 +1012,7 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
     var category by remember { mutableStateOf(Category.SCHOOL_EVENT) }
     var date by remember { mutableStateOf(LocalDate.now()) }
     var repeat by remember { mutableStateOf(Repeat.ONE_TIME) }
-    var reminder by remember { mutableStateOf(Reminder.NIGHT_BEFORE) }
+    var reminder by remember { mutableStateOf(vm.defaultReminder) }
     var notes by remember { mutableStateOf("") }
     var needsHome by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -1245,10 +1266,12 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(vm: SchoolStuffViewModel) {
     val context = LocalContext.current
     val repo = remember { CalendarProviderRepository(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var calendarPermissionGranted by remember { mutableStateOf(repo.hasReadPermission()) }
     var calendars by remember { mutableStateOf<List<DeviceCalendar>>(emptyList()) }
@@ -1258,6 +1281,32 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
     var defaultId by remember { mutableStateOf(vm.defaultCalendarId()) }
     var message by remember { mutableStateOf("") }
     var calendarSyncing by remember { mutableStateOf(false) }
+    var notificationsEnabled by remember { mutableStateOf(ReminderNotifications.areEnabled(context)) }
+    var notificationMessage by remember { mutableStateOf("") }
+    var defaultReminderMenuExpanded by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationsEnabled = ReminderNotifications.areEnabled(context)
+        notificationMessage = if (notificationsEnabled) {
+            vm.rescheduleAllReminders()
+            "Notifications are ready."
+        } else {
+            "Notifications are still blocked. You can allow them in your phone settings."
+        }
+    }
+
+    DisposableEffect(context, lifecycleOwner) {
+        ReminderNotifications.ensureChannel(context)
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsEnabled = ReminderNotifications.areEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     suspend fun refreshCalendarsOnce(): List<DeviceCalendar> {
         val granted = repo.hasReadPermission()
@@ -1477,15 +1526,128 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section("Notifications", SchoolGreen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Notifications, null, tint = if (notificationsEnabled) SchoolGreen else Ink.copy(alpha = .45f))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (notificationsEnabled) "Notifications allowed" else "Notifications are off",
+                                    color = Ink,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    if (notificationsEnabled) "School Stuff can send the reminders chosen on your items."
+                                    else "Allow notifications so school reminders can reach you.",
+                                    color = Ink.copy(alpha = .62f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        if (!notificationsEnabled) {
+                            Button(onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    notificationsEnabled = ReminderNotifications.areEnabled(context)
+                                }
+                            }) { Text("Allow notifications") }
+                        }
+
+                        ReminderTimeRow(
+                            label = "Night before",
+                            hour = vm.nightReminderHour,
+                            minute = vm.nightReminderMinute,
+                            onClick = {
+                                TimePickerDialog(
+                                    context,
+                                    { _, hour, minute -> vm.setNightReminderTime(hour, minute) },
+                                    vm.nightReminderHour,
+                                    vm.nightReminderMinute,
+                                    android.text.format.DateFormat.is24HourFormat(context)
+                                ).show()
+                            }
+                        )
+                        ReminderTimeRow(
+                            label = "Morning of",
+                            hour = vm.morningReminderHour,
+                            minute = vm.morningReminderMinute,
+                            onClick = {
+                                TimePickerDialog(
+                                    context,
+                                    { _, hour, minute -> vm.setMorningReminderTime(hour, minute) },
+                                    vm.morningReminderHour,
+                                    vm.morningReminderMinute,
+                                    android.text.format.DateFormat.is24HourFormat(context)
+                                ).show()
+                            }
+                        )
+
+                        Text("Default for new items", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        ExposedDropdownMenuBox(
+                            expanded = defaultReminderMenuExpanded,
+                            onExpandedChange = { defaultReminderMenuExpanded = !defaultReminderMenuExpanded },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = vm.defaultReminder,
+                                onValueChange = {},
+                                readOnly = true,
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(defaultReminderMenuExpanded) },
+                                singleLine = true
+                            )
+                            ExposedDropdownMenu(
+                                expanded = defaultReminderMenuExpanded,
+                                onDismissRequest = { defaultReminderMenuExpanded = false }
+                            ) {
+                                Reminder.all.forEach { choice ->
+                                    DropdownMenuItem(
+                                        text = { Text(choice) },
+                                        onClick = {
+                                            vm.setDefaultReminder(choice)
+                                            defaultReminderMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                val shown = ReminderNotifications.showTest(context)
+                                notificationsEnabled = ReminderNotifications.areEnabled(context)
+                                notificationMessage = if (shown) "Test notification sent." else "Allow notifications first."
+                            }) { Text("Send test") }
+                            OutlinedButton(onClick = {
+                                ReminderNotifications.ensureChannel(context)
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                )
+                            }) { Text("Phone settings") }
+                        }
+
+                        if (notificationMessage.isNotBlank()) {
+                            Text(notificationMessage, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
+                        }
+                        Text(
+                            "Android may deliver scheduled reminders a little after the chosen time to save battery.",
+                            color = Ink.copy(alpha = .55f),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("About this build", SchoolGreen) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Verified build: Directive-style live calendar refresh + the actual illustrated prototype artwork.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Notifications, null, tint = SchoolGreen)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Reminders use Android notifications and WorkManager.", color = Ink, fontSize = 13.sp)
-                        }
+                        Text("Notification controls, adjustable reminder times, and a test notification.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                     }
                 }
             }

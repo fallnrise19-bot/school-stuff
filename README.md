@@ -3,8 +3,8 @@
 School Stuff is a parent-first Android school organizer: Today/Tomorrow reminders, multiple children, homework and forms, teacher/school details, document references, notifications, and Android/Google Calendar integration through the phone's Calendar Provider.
 
 ## Current build
-- Version: 0.1.6-planner-controls
-- versionCode: 20
+- Version: 0.1.6-notification-settings
+- versionCode: 21
 - Package: `ca.creativepixels.schoolstuff`
 - Minimum Android: 8.0 (API 26)
 - Target/compile SDK: 35
@@ -25,7 +25,7 @@ Every push to `main` runs `.github/workflows/build-debug-apk.yml` and uploads `S
 - Papers & Memories references using Android's document picker and normal image/PDF viewers
 - Calendar screen
 - Android Calendar Provider connection, calendar selection, import and write-back
-- Local notifications through WorkManager
+- Notification permission controls, adjustable night-before/morning-of times, test notifications, and local scheduling through WorkManager
 - Local on-device storage (SharedPreferences JSON) so there is no server/account requirement yet
 
 ## Calendar design

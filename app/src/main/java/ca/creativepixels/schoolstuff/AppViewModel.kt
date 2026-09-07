@@ -25,6 +25,16 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         private set
     var parentNotes by mutableStateOf("")
         private set
+    var nightReminderHour by mutableStateOf(20)
+        private set
+    var nightReminderMinute by mutableStateOf(0)
+        private set
+    var morningReminderHour by mutableStateOf(7)
+        private set
+    var morningReminderMinute by mutableStateOf(0)
+        private set
+    var defaultReminder by mutableStateOf(Reminder.NIGHT_BEFORE)
+        private set
 
     init {
         if (!store.hasSeeded()) {
@@ -41,6 +51,11 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         documents = store.loadDocuments()
         transportation = store.loadTransportation()
         parentNotes = store.getParentNotes()
+        nightReminderHour = store.getNightReminderHour()
+        nightReminderMinute = store.getNightReminderMinute()
+        morningReminderHour = store.getMorningReminderHour()
+        morningReminderMinute = store.getMorningReminderMinute()
+        defaultReminder = store.getDefaultReminder()
     }
 
     fun child(id: String): ChildProfile? = children.firstOrNull { it.id == id }
@@ -115,6 +130,30 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
     fun saveParentNotes(notes: String) {
         parentNotes = notes.trim()
         store.setParentNotes(parentNotes)
+    }
+
+    fun setNightReminderTime(hour: Int, minute: Int) {
+        nightReminderHour = hour.coerceIn(0, 23)
+        nightReminderMinute = minute.coerceIn(0, 59)
+        store.setNightReminderTime(nightReminderHour, nightReminderMinute)
+        rescheduleAllReminders()
+    }
+
+    fun setMorningReminderTime(hour: Int, minute: Int) {
+        morningReminderHour = hour.coerceIn(0, 23)
+        morningReminderMinute = minute.coerceIn(0, 59)
+        store.setMorningReminderTime(morningReminderHour, morningReminderMinute)
+        rescheduleAllReminders()
+    }
+
+    fun setDefaultReminder(value: String) {
+        if (value !in Reminder.all) return
+        defaultReminder = value
+        store.setDefaultReminder(value)
+    }
+
+    fun rescheduleAllReminders() {
+        items.forEach { ReminderScheduler.schedule(getApplication(), it) }
     }
 
     fun selectedCalendarIds(): Set<Long> = store.getSelectedCalendarIds()

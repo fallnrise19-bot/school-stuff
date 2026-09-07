@@ -5,6 +5,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import ca.creativepixels.schoolstuff.data.Reminder
+import ca.creativepixels.schoolstuff.data.LocalStore
 import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolItem
 import java.time.Duration
@@ -36,15 +37,21 @@ object ReminderScheduler {
     private fun scheduleOne(context: Context, item: SchoolItem, kind: String) {
         val now = LocalDateTime.now()
         val eventDate = nextOccurrence(item, now.toLocalDate()) ?: return
-        val reminderAt = if (kind == "night") {
-            LocalDateTime.of(eventDate.minusDays(1), LocalTime.of(20, 0))
+        val store = LocalStore(context)
+        val selectedTime = if (kind == "night") {
+            LocalTime.of(store.getNightReminderHour(), store.getNightReminderMinute())
         } else {
-            LocalDateTime.of(eventDate, LocalTime.of(7, 0))
+            LocalTime.of(store.getMorningReminderHour(), store.getMorningReminderMinute())
+        }
+        val reminderAt = if (kind == "night") {
+            LocalDateTime.of(eventDate.minusDays(1), selectedTime)
+        } else {
+            LocalDateTime.of(eventDate, selectedTime)
         }
         val adjusted = if (reminderAt.isAfter(now)) reminderAt else {
             val next = nextOccurrence(item, eventDate.plusDays(1)) ?: return
-            if (kind == "night") LocalDateTime.of(next.minusDays(1), LocalTime.of(20, 0))
-            else LocalDateTime.of(next, LocalTime.of(7, 0))
+            if (kind == "night") LocalDateTime.of(next.minusDays(1), selectedTime)
+            else LocalDateTime.of(next, selectedTime)
         }
         val delay = Duration.between(now, adjusted).toMinutes().coerceAtLeast(1)
         val data = Data.Builder()

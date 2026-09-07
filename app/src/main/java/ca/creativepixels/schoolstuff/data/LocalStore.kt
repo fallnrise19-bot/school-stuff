@@ -37,6 +37,29 @@ class LocalStore(context: Context) {
     fun getParentNotes(): String = prefs.getString("parent_notes", "").orEmpty()
     fun setParentNotes(value: String) = prefs.edit().putString("parent_notes", value).apply()
 
+    fun getNightReminderHour(): Int = prefs.getInt("night_reminder_hour", 20).coerceIn(0, 23)
+    fun getNightReminderMinute(): Int = prefs.getInt("night_reminder_minute", 0).coerceIn(0, 59)
+    fun setNightReminderTime(hour: Int, minute: Int) = prefs.edit()
+        .putInt("night_reminder_hour", hour.coerceIn(0, 23))
+        .putInt("night_reminder_minute", minute.coerceIn(0, 59))
+        .apply()
+
+    fun getMorningReminderHour(): Int = prefs.getInt("morning_reminder_hour", 7).coerceIn(0, 23)
+    fun getMorningReminderMinute(): Int = prefs.getInt("morning_reminder_minute", 0).coerceIn(0, 59)
+    fun setMorningReminderTime(hour: Int, minute: Int) = prefs.edit()
+        .putInt("morning_reminder_hour", hour.coerceIn(0, 23))
+        .putInt("morning_reminder_minute", minute.coerceIn(0, 59))
+        .apply()
+
+    fun getDefaultReminder(): String = prefs.getString("default_reminder", Reminder.NIGHT_BEFORE)
+        .orEmpty()
+        .takeIf { it in Reminder.all }
+        ?: Reminder.NIGHT_BEFORE
+
+    fun setDefaultReminder(value: String) {
+        if (value in Reminder.all) prefs.edit().putString("default_reminder", value).apply()
+    }
+
     fun hasSeeded(): Boolean = prefs.getBoolean("seeded", false)
     fun markSeeded() = prefs.edit().putBoolean("seeded", true).apply()
 

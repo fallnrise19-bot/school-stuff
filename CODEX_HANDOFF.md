@@ -6,21 +6,25 @@ Read this before changing anything. Continue the existing Android project; do no
 
 - GitHub repo: `fallnrise19-bot/school-stuff`
 - Android package: `ca.creativepixels.schoolstuff`
-- Current app version: **0.1.12 / versionCode 13**
+- Current app version: **0.1.13 / versionCode 14**
 - The Google Drive folder is **School Stuff**.
 - A current source ZIP is being placed in that Drive folder for Codex as well.
 
-## CRITICAL CURRENT BUG — FIX FIRST
+## CRITICAL CURRENT BUG — DEVICE VERIFICATION REQUIRED
 
-The child-profile navigation/gesture problem is **NOT fixed**.
+The child-profile navigation/gesture problem was reworked in 0.1.13 and is **not considered closed until the user verifies it on the Samsung device**.
 
-User test on the current build: while inside a child's profile, swiping/scrolling with a sideways component still causes the app to leave/close/minimize to the Android launcher/home screen.
+User test on 0.1.12: while inside a child's profile, swiping/scrolling with a sideways component still caused the app to leave/close/minimize to the Android launcher/home screen.
 
-A `BackHandler(enabled = addingThing || childPage != null)` was added in 0.1.12 so system Back should return from Add Thing or Child Profile to the app rather than finish the Activity. **The user has explicitly confirmed this did not solve the actual problem. Do not assume it is fixed.**
+A `BackHandler(enabled = addingThing || childPage != null)` was added in 0.1.12 so system Back should return from Add Thing or Child Profile to the app rather than finish the Activity. The user explicitly confirmed that attempt did not solve the actual problem.
 
-Investigate the real gesture/navigation cause on Android/Samsung. Reproduce and inspect activity/back dispatch, predictive back, edge gestures, Compose state navigation, horizontal gesture consumers, and any interaction between LazyColumn scrolling and system gesture navigation. The desired behavior is simple: ordinary scrolling in a child profile must never close or minimize the app; a genuine Android back gesture should navigate one level back inside School Stuff when on an internal screen.
+0.1.13 removes that local-state/BackHandler navigation architecture. `SchoolStuffNavigator` now owns a real internal history outside the composable tree, and `MainActivity` registers an `OnBackPressedCallback` before composing the UI. The callback is enabled synchronously whenever the internal back stack is non-empty, so a genuine system Back gesture pops exactly one School Stuff destination. The root Scaffold also uses `WindowInsets.safeContent`, keeping gesture-driven content outside Android's back/home gesture insets on edge-to-edge Samsung/Android devices. Predictive back is explicitly enabled on `MainActivity`.
 
-Do not paper over this with another guessed `onResume` or simple BackHandler-only patch. Inspect the architecture and fix it robustly.
+Unit tests cover Main → Child → Add Thing → Child → Main back-stack order and callback availability. GitHub CI now runs these tests before assembling the debug APK.
+
+The next verification must test both cases separately: diagonal/sideways scrolling within a child profile must not leave School Stuff, and a deliberate Android Back gesture must return exactly one level. If 0.1.13 still reaches the launcher during an ordinary scroll, establish whether Samsung is invoking the mandatory Home gesture from the bottom inset before changing navigation again; Android does not allow apps to intercept that gesture.
+
+Do not re-add another guessed local `BackHandler` or `onResume` patch.
 
 ## LOCKED WORKING CALENDAR FIX — DO NOT BREAK
 
@@ -131,12 +135,12 @@ After the child-profile swipe/close bug is fixed, the user wants to continue sub
 - Inspect the current source before patching.
 - Keep working features intact, especially the calendar fix.
 - Build after meaningful changes and inspect compiler/runtime implications instead of handing the user speculative code.
-- For the unresolved swipe/close bug, the latest attempted fix is known to have failed in real-device testing. Start from that fact.
+- For the swipe/close bug, 0.1.12 is known to have failed in real-device testing; 0.1.13 still requires real-device confirmation.
 
 ## CURRENT HANDOFF POINT
 
 The immediate next task is:
 
-**Reproduce and properly fix the child-profile sideways swipe/scroll behavior that still exits/minimizes the app on the user's Android/Samsung phone.**
+**Have the user install and test 0.1.13 build 14 on the Android/Samsung phone, then record whether diagonal scrolling and a deliberate Back gesture behave separately as intended.**
 
 Once that is stable, proceed with account sharing, subscription architecture, and the next requested features.

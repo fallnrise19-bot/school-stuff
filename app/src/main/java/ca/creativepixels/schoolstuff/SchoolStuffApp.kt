@@ -9,7 +9,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.OpenableColumns
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -28,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -136,23 +137,16 @@ private enum class MainTab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun SchoolStuffApp(vm: SchoolStuffViewModel) {
+internal fun SchoolStuffApp(vm: SchoolStuffViewModel, navigator: SchoolStuffNavigator) {
     SchoolStuffTheme {
         var tab by remember { mutableStateOf(MainTab.HOME) }
-        var childPage by remember { mutableStateOf<String?>(null) }
-        var addingThing by remember { mutableStateOf(false) }
-
-        BackHandler(enabled = addingThing || childPage != null) {
-            when {
-                addingThing -> addingThing = false
-                childPage != null -> childPage = null
-            }
-        }
+        val destination = navigator.currentDestination
 
         Scaffold(
             containerColor = Paper,
+            contentWindowInsets = WindowInsets.safeContent,
             bottomBar = {
-                if (childPage == null && !addingThing) {
+                if (destination == SchoolStuffDestination.Main) {
                     NavigationBar(containerColor = Color.White) {
                         MainTab.entries.forEach { item ->
                             NavigationBarItem(
@@ -167,13 +161,23 @@ fun SchoolStuffApp(vm: SchoolStuffViewModel) {
             }
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
-                when {
-                    addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
-                    childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })
-                    tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
-                    tab == MainTab.CALENDAR -> CalendarScreen(vm)
-                    tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
-                    else -> SettingsScreen(vm)
+                when (destination) {
+                    SchoolStuffDestination.AddThing -> AddThingScreen(
+                        vm,
+                        onBack = { navigator.navigateBack() }
+                    )
+                    is SchoolStuffDestination.Child -> ChildScreen(
+                        vm,
+                        destination.childId,
+                        onBack = { navigator.navigateBack() },
+                        onAddThing = navigator::openAddThing
+                    )
+                    SchoolStuffDestination.Main -> when (tab) {
+                        MainTab.HOME -> HomeScreen(vm, onAdd = navigator::openAddThing, onChild = navigator::openChild)
+                        MainTab.CALENDAR -> CalendarScreen(vm)
+                        MainTab.KIDS -> KidsScreen(vm, onChild = navigator::openChild)
+                        MainTab.SETTINGS -> SettingsScreen(vm)
+                    }
                 }
             }
         }

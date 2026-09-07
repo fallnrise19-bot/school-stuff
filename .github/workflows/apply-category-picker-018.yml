@@ -1,0 +1,252 @@
+name: Apply Category Picker 0.1.8
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/apply-category-picker-018.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch category dropdown and emoji picker
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt')
+          text = path.read_text()
+
+          # Material 3 exposed dropdown imports.
+          anchor = 'import androidx.compose.material3.ExperimentalMaterial3Api\n'
+          replacement = anchor + 'import androidx.compose.material3.DropdownMenuItem\nimport androidx.compose.material3.ExposedDropdownMenuBox\nimport androidx.compose.material3.ExposedDropdownMenuDefaults\n'
+          if 'import androidx.compose.material3.ExposedDropdownMenuBox\n' not in text:
+              assert anchor in text
+              text = text.replace(anchor, replacement, 1)
+
+          # Show a user-selected emoji in lists, otherwise retain the illustrated prototype asset.
+          old_row = '''        ChildBadge(vm.child(item.childId), 38)
+          Spacer(Modifier.width(10.dp))
+          MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+          Spacer(Modifier.width(8.dp))
+          '''
+          new_row = '''        ChildBadge(vm.child(item.childId), 38)
+          Spacer(Modifier.width(10.dp))
+          val itemEmoji = item.emoji.orEmpty()
+          if (itemEmoji.isNotBlank()) {
+              Surface(
+                  color = SoftYellow,
+                  shape = RoundedCornerShape(12.dp)
+              ) {
+                  Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                      Text(itemEmoji, fontSize = 23.sp)
+                  }
+              }
+          } else {
+              MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+          }
+          Spacer(Modifier.width(8.dp))
+          '''
+          assert old_row in text
+          text = text.replace(old_row, new_row, 1)
+
+          # Add local state for dropdown/custom category/emoji picker.
+          old_state = '''    var notes by remember { mutableStateOf("") }
+          var needsHome by remember { mutableStateOf(false) }
+          var showDatePicker by remember { mutableStateOf(false) }
+          '''
+          new_state = '''    var notes by remember { mutableStateOf("") }
+          var needsHome by remember { mutableStateOf(false) }
+          var showDatePicker by remember { mutableStateOf(false) }
+          val customCategoryOption = "__CUSTOM__"
+          var categoryMenuExpanded by remember { mutableStateOf(false) }
+          var customCategory by remember { mutableStateOf("") }
+          var selectedEmoji by remember { mutableStateOf("") }
+          var showEmojiPicker by remember { mutableStateOf(false) }
+          val emojiChoices = listOf(
+              "🎒", "📚", "✏️", "📝", "📄",
+              "🍕", "🥪", "🍎", "🥛", "🧁",
+              "⚽", "🏀", "🏃", "👟", "🏊",
+              "🎨", "🎭", "🎵", "📷", "⭐",
+              "🚌", "🏫", "🔬", "💻", "🧪",
+              "👕", "🎉", "📌", "⏰", "❤️"
+          )
+          '''
+          assert old_state in text
+          text = text.replace(old_state, new_state, 1)
+
+          # Replace the horizontal category chips with a dropdown, Custom option and emoji chooser.
+          old_category = '''                Text("Category", color = Ink, fontWeight = FontWeight.Bold)
+          Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+              Category.all.forEach { cat ->
+                  FilterChip(selected = category == cat, onClick = { category = cat }, label = { Text(cat) }, leadingIcon = { Icon(categoryIcon(cat), null, modifier = Modifier.size(17.dp)) })
+              }
+          }
+          '''
+          new_category = '''                Text("Category", color = Ink, fontWeight = FontWeight.Bold)
+          ExposedDropdownMenuBox(
+              expanded = categoryMenuExpanded,
+              onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
+              modifier = Modifier.fillMaxWidth()
+          ) {
+              OutlinedTextField(
+                  value = if (category == customCategoryOption) "Custom…" else category,
+                  onValueChange = { },
+                  readOnly = true,
+                  modifier = Modifier.menuAnchor().fillMaxWidth(),
+                  trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded) },
+                  singleLine = true
+              )
+              ExposedDropdownMenu(
+                  expanded = categoryMenuExpanded,
+                  onDismissRequest = { categoryMenuExpanded = false }
+              ) {
+                  Category.all.forEach { cat ->
+                      DropdownMenuItem(
+                          text = { Text(cat) },
+                          leadingIcon = { Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(20.dp)) },
+                          onClick = {
+                              category = cat
+                              categoryMenuExpanded = false
+                          }
+                      )
+                  }
+                  DropdownMenuItem(
+                      text = { Text("Custom…") },
+                      leadingIcon = { Text("✨", fontSize = 20.sp) },
+                      onClick = {
+                          category = customCategoryOption
+                          categoryMenuExpanded = false
+                      }
+                  )
+              }
+          }
+          if (category == customCategoryOption) {
+              OutlinedTextField(
+                  value = customCategory,
+                  onValueChange = { customCategory = it },
+                  modifier = Modifier.fillMaxWidth(),
+                  label = { Text("Custom category") },
+                  placeholder = { Text("e.g. Field Trip, Club, Fundraiser") },
+                  singleLine = true
+              )
+          }
+          Text("Emoji (optional)", color = Ink, fontWeight = FontWeight.Bold)
+          OutlinedButton(
+              onClick = { showEmojiPicker = true },
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(16.dp),
+              contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+          ) {
+              Text(if (selectedEmoji.isBlank()) "🙂" else selectedEmoji, fontSize = 25.sp)
+              Spacer(Modifier.width(10.dp))
+              Text(if (selectedEmoji.isBlank()) "Choose an emoji" else "Change emoji", modifier = Modifier.weight(1f))
+          }
+          '''
+          assert old_category in text
+          text = text.replace(old_category, new_category, 1)
+
+          # Save the custom category and emoji with the school item.
+          old_save = 'vm.addItem(SchoolItem(childId = childId, title = title.trim(), category = category, dateIso = date.toString(), repeat = repeat, reminder = reminder, notes = notes.trim(), needsItemFromHome = needsHome))'
+          new_save = '''val finalCategory = if (category == customCategoryOption) customCategory.trim().ifBlank { "Other" } else category
+                      vm.addItem(SchoolItem(childId = childId, title = title.trim(), category = finalCategory, emoji = selectedEmoji.ifBlank { null }, dateIso = date.toString(), repeat = repeat, reminder = reminder, notes = notes.trim(), needsItemFromHome = needsHome))'''
+          assert old_save in text
+          text = text.replace(old_save, new_save, 1)
+
+          # Emoji picker dialog. Keep the date picker exactly as-is below it.
+          date_picker_anchor = '''    if (showDatePicker) {
+          val datePickerState = androidx.compose.material3.rememberDatePickerState(
+          '''
+          emoji_dialog = '''    if (showEmojiPicker) {
+          AlertDialog(
+              onDismissRequest = { showEmojiPicker = false },
+              title = { Text("Choose an emoji") },
+              text = {
+                  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                      Text("Pick something that will make this school thing easy to spot.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                      Spacer(Modifier.height(4.dp))
+                      emojiChoices.chunked(5).forEach { row ->
+                          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                              row.forEach { emoji ->
+                                  TextButton(
+                                      onClick = {
+                                          selectedEmoji = emoji
+                                          showEmojiPicker = false
+                                      },
+                                      modifier = Modifier.size(46.dp),
+                                      contentPadding = PaddingValues(0.dp)
+                                  ) {
+                                      Text(emoji, fontSize = 25.sp)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              },
+              confirmButton = {
+                  TextButton(onClick = { showEmojiPicker = false }) { Text("Close") }
+              },
+              dismissButton = {
+                  TextButton(onClick = {
+                      selectedEmoji = ""
+                      showEmojiPicker = false
+                  }) { Text("No emoji") }
+              }
+          )
+          }
+
+          ''' + date_picker_anchor
+          assert date_picker_anchor in text
+          text = text.replace(date_picker_anchor, emoji_dialog, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SchoolStuff-0.1.8-build9-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit successful category picker build
+        shell: bash
+        run: |
+          git config user.name "fallnrise19-bot"
+          git config user.email "fall.n.rise19@gmail.com"
+          git add app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "Add category dropdown custom category and emoji picker"
+            git push
+          fi

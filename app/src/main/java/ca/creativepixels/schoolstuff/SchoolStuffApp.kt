@@ -1266,6 +1266,49 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
     }
 }
 
+@Composable
+private fun CollapsibleSettingsCard(
+    title: String,
+    summary: String,
+    icon: ImageVector,
+    accent: Color,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = .14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(23.dp))
+            }
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(summary, color = Ink.copy(alpha = .58f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = Ink.copy(alpha = .55f)
+            )
+        }
+        if (expanded) {
+            HorizontalDivider(color = Ink.copy(alpha = .08f))
+            Box(Modifier.fillMaxWidth().padding(14.dp)) { content() }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(vm: SchoolStuffViewModel) {
@@ -1284,6 +1327,7 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
     var notificationsEnabled by remember { mutableStateOf(ReminderNotifications.areEnabled(context)) }
     var notificationMessage by remember { mutableStateOf("") }
     var defaultReminderMenuExpanded by remember { mutableStateOf(false) }
+    var expandedSettingsSection by remember { mutableStateOf<String?>(null) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -1397,10 +1441,20 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("Settings", "Calendar connection and the boring useful bits. ♥", note = "No account required") }
+        item { Header("Settings", "Everything useful, without the giant wall of controls. ♥", note = "Tap a section to open it") }
         item {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Google Calendar", SchoolBlue) {
+            CollapsibleSettingsCard(
+                title = "Google Calendar",
+                summary = when {
+                    !calendarPermissionGranted -> "Not connected"
+                    selected.isEmpty() -> "Connected · no calendars selected"
+                    else -> "Connected · ${selected.size} calendar${if (selected.size == 1) "" else "s"} selected"
+                },
+                icon = Icons.Rounded.CalendarMonth,
+                accent = SchoolBlue,
+                expanded = expandedSettingsSection == "calendar",
+                onToggle = { expandedSettingsSection = if (expandedSettingsSection == "calendar") null else "calendar" }
+            ) {
                     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             MockupArtImage(MockupAsset.BOOKS, Modifier.size(54.dp), "School calendar")
@@ -1521,12 +1575,21 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
                             if (message.isNotBlank()) Text(message, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
                         }
                     }
-                }
             }
         }
         item {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("Notifications", SchoolGreen) {
+            CollapsibleSettingsCard(
+                title = "Notifications",
+                summary = if (notificationsEnabled) {
+                    "On · night before ${LocalTime.of(vm.nightReminderHour, vm.nightReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))} · morning ${LocalTime.of(vm.morningReminderHour, vm.morningReminderMinute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))}"
+                } else {
+                    "Off · tap to set up reminders"
+                },
+                icon = Icons.Rounded.Notifications,
+                accent = SchoolGreen,
+                expanded = expandedSettingsSection == "notifications",
+                onToggle = { expandedSettingsSection = if (expandedSettingsSection == "notifications") null else "notifications" }
+            ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Notifications, null, tint = if (notificationsEnabled) SchoolGreen else Ink.copy(alpha = .45f))
@@ -1639,17 +1702,21 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
                             fontSize = 11.sp
                         )
                     }
-                }
             }
         }
         item {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section("About this build", SchoolGreen) {
+            CollapsibleSettingsCard(
+                title = "About School Stuff",
+                summary = "Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}",
+                icon = Icons.Rounded.School,
+                accent = SchoolBlue,
+                expanded = expandedSettingsSection == "about",
+                onToggle = { expandedSettingsSection = if (expandedSettingsSection == "about") null else "about" }
+            ) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", color = Ink, fontWeight = FontWeight.Bold)
-                        Text("Notification controls, adjustable reminder times, and a test notification.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
+                        Text("Compact settings sections, notification controls, adjustable reminder times, and a test notification.", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                     }
-                }
             }
         }
     }

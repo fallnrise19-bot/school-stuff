@@ -1,6 +1,6 @@
 # School Stuff project status
 
-Current prototype: 0.1.6-notification-settings / versionCode 21
+Current prototype: 0.1.6-compact-settings / versionCode 22
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -15,6 +15,7 @@ Current prototype areas:
 - Calendar date picker, category dropdown with Custom, and optional item emoji
 - Papers and Memories references with categorized upload and Android file viewing
 - Notification permission status, adjustable reminder times, a default reminder, and a test notification
+- Compact accordion-style Settings cards so only one group of controls is open at a time
 - Android Calendar Provider import/write-back
 
 Next after the first successful APK install: phone UI testing, interaction fixes, then subscription/cloud architecture only after the local core is solid.

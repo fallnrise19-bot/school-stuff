@@ -1607,7 +1607,7 @@ private fun SettingsScreen(vm: SchoolStuffViewModel) {
                                     DropdownMenuItem(
                                         text = { Text(choice) },
                                         onClick = {
-                                            vm.setDefaultReminder(choice)
+                                            vm.updateDefaultReminder(choice)
                                             defaultReminderMenuExpanded = false
                                         }
                                     )

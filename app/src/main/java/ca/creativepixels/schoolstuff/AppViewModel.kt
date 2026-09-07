@@ -146,7 +146,7 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         rescheduleAllReminders()
     }
 
-    fun setDefaultReminder(value: String) {
+    fun updateDefaultReminder(value: String) {
         if (value !in Reminder.all) return
         defaultReminder = value
         store.setDefaultReminder(value)

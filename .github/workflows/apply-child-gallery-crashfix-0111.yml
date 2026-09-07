@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Apply child gallery crash fix
-        run: python3 .github/scripts/apply_child_gallery_crashfix_0111.py
+        run: python3 .github/scripts/run_child_gallery_crashfix_0111_v2.py
 
       - name: Set up Java 17
         uses: actions/setup-java@v4

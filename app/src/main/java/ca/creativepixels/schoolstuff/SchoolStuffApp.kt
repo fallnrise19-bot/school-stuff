@@ -72,7 +72,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -274,7 +277,16 @@ private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Com
     ) {
         ChildBadge(vm.child(item.childId), 38)
         Spacer(Modifier.width(10.dp))
-        MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+        val itemEmoji = item.emoji.orEmpty()
+        if (itemEmoji.isNotBlank()) {
+            Surface(color = SoftYellow, shape = RoundedCornerShape(12.dp)) {
+                Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                    Text(itemEmoji, fontSize = 23.sp)
+                }
+            }
+        } else {
+            MockupArtImage(categoryArt(item), modifier = Modifier.size(36.dp), contentDescription = item.category)
+        }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -982,6 +994,20 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
     var reminder by remember { mutableStateOf(Reminder.NIGHT_BEFORE) }
     var notes by remember { mutableStateOf("") }
     var needsHome by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val customCategoryOption = "__CUSTOM__"
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var customCategory by remember { mutableStateOf("") }
+    var selectedEmoji by remember { mutableStateOf("") }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    val emojiChoices = listOf(
+        "🎒", "📚", "✏️", "📝", "📄",
+        "🍕", "🥪", "🍎", "🥛", "🧁",
+        "⚽", "🏀", "🏃", "👟", "🏊",
+        "🎨", "🎭", "🎵", "📷", "⭐",
+        "🚌", "🏫", "🔬", "💻", "🧪",
+        "👕", "🎉", "📌", "⏰", "❤️"
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1000,16 +1026,81 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 }
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("What's the school thing?") }, singleLine = true)
                 Text("Category", color = Ink, fontWeight = FontWeight.Bold)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Category.all.forEach { cat ->
-                        FilterChip(selected = category == cat, onClick = { category = cat }, label = { Text(cat) }, leadingIcon = { Icon(categoryIcon(cat), null, modifier = Modifier.size(17.dp)) })
+                ExposedDropdownMenuBox(
+                    expanded = categoryMenuExpanded,
+                    onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = if (category == customCategoryOption) "Custom…" else category,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded) },
+                        singleLine = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryMenuExpanded,
+                        onDismissRequest = { categoryMenuExpanded = false }
+                    ) {
+                        Category.all.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                leadingIcon = { Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                onClick = {
+                                    category = cat
+                                    categoryMenuExpanded = false
+                                }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Custom…") },
+                            leadingIcon = { Text("✨", fontSize = 20.sp) },
+                            onClick = {
+                                category = customCategoryOption
+                                categoryMenuExpanded = false
+                            }
+                        )
                     }
                 }
+                if (category == customCategoryOption) {
+                    OutlinedTextField(
+                        value = customCategory,
+                        onValueChange = { customCategory = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Custom category") },
+                        placeholder = { Text("e.g. Field Trip, Club, Fundraiser") },
+                        singleLine = true
+                    )
+                }
+                Text("Emoji (optional)", color = Ink, fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = { showEmojiPicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Text(if (selectedEmoji.isBlank()) "🙂" else selectedEmoji, fontSize = 25.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(if (selectedEmoji.isBlank()) "Choose an emoji" else "Change emoji", modifier = Modifier.weight(1f))
+                }
                 Text("Date", color = Ink, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { date = date.minusDays(1) }) { Text("−") }
-                    Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), color = Ink, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = { date = date.plusDays(1) }) { Text("+") }
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
+                        Text(
+                            date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")),
+                            color = Ink,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text("Tap to choose a date", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
+                    }
                 }
                 Text("Repeat", color = Ink, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1026,7 +1117,20 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                 }
                 Button(
                     onClick = {
-                        vm.addItem(SchoolItem(childId = childId, title = title.trim(), category = category, dateIso = date.toString(), repeat = repeat, reminder = reminder, notes = notes.trim(), needsItemFromHome = needsHome))
+                        val finalCategory = if (category == customCategoryOption) customCategory.trim().ifBlank { "Other" } else category
+                        vm.addItem(
+                            SchoolItem(
+                                childId = childId,
+                                title = title.trim(),
+                                category = finalCategory,
+                                emoji = selectedEmoji.takeIf { it.isNotBlank() },
+                                dateIso = date.toString(),
+                                repeat = repeat,
+                                reminder = reminder,
+                                notes = notes.trim(),
+                                needsItemFromHome = needsHome
+                            )
+                        )
                         onBack()
                     },
                     enabled = title.isNotBlank(),
@@ -1038,6 +1142,77 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
                     Text("Save")
                 }
             }
+        }
+    }
+
+    if (showEmojiPicker) {
+        AlertDialog(
+            onDismissRequest = { showEmojiPicker = false },
+            title = { Text("Choose an emoji") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Pick something that will make this school thing easy to spot.",
+                        color = Ink.copy(alpha = .65f),
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    emojiChoices.chunked(5).forEach { emojiRow ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            emojiRow.forEach { emoji ->
+                                TextButton(
+                                    onClick = {
+                                        selectedEmoji = emoji
+                                        showEmojiPicker = false
+                                    },
+                                    modifier = Modifier.size(46.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text(emoji, fontSize = 25.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showEmojiPicker = false }) { Text("Close") } },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        selectedEmoji = ""
+                        showEmojiPicker = false
+                    }
+                ) { Text("No emoji") }
+            }
+        )
+    }
+
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = date
+                .atStartOfDay(java.time.ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        )
+
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            date = java.time.Instant
+                                .ofEpochMilli(millis)
+                                .atZone(java.time.ZoneOffset.UTC)
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("Choose") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+        ) {
+            androidx.compose.material3.DatePicker(state = datePickerState, showModeToggle = true)
         }
     }
 }

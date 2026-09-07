@@ -1,5 +1,6 @@
 name: Apply Transportation 0.1.9
 
+# Retry after transportation icon import fix.
 on:
   push:
     branches: [ "main" ]

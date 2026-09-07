@@ -16,6 +16,13 @@ data class ChildProfile(
     val schoolPhone: String = "",
     val attendancePhone: String = "",
     val schoolAddress: String = "",
+    val transportationType: String = "",
+    val busNumber: String = "",
+    val transportDriverName: String = "",
+    val transportLicensePlate: String = "",
+    val pickupInfo: String = "",
+    val dropOffInfo: String = "",
+    val transportationNotes: String = "",
     val specialNotes: String = ""
 )
 

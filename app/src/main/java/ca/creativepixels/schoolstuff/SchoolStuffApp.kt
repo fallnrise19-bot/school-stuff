@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.OpenableColumns
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -140,6 +141,13 @@ fun SchoolStuffApp(vm: SchoolStuffViewModel) {
         var tab by remember { mutableStateOf(MainTab.HOME) }
         var childPage by remember { mutableStateOf<String?>(null) }
         var addingThing by remember { mutableStateOf(false) }
+
+        BackHandler(enabled = addingThing || childPage != null) {
+            when {
+                addingThing -> addingThing = false
+                childPage != null -> childPage = null
+            }
+        }
 
         Scaffold(
             containerColor = Paper,

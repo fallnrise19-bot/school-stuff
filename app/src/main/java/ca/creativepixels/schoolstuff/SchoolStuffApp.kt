@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Checkroom
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.rounded.LocalPizza
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
@@ -597,6 +599,41 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         }
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section("Transportation", SchoolGreen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        val hasTransportInfo = listOf(
+                            child.transportationType,
+                            child.busNumber,
+                            child.transportDriverName,
+                            child.transportLicensePlate,
+                            child.pickupInfo,
+                            child.dropOffInfo,
+                            child.transportationNotes
+                        ).any { it.isNotBlank() }
+
+                        if (!hasTransportInfo) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolGreen)
+                                Spacer(Modifier.width(8.dp))
+                                Text("No transportation details added yet.", color = Ink.copy(alpha = .62f))
+                            }
+                        } else {
+                            if (child.transportationType.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Type", child.transportationType)
+                            if (child.busNumber.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Bus / route", child.busNumber)
+                            if (child.transportDriverName.isNotBlank()) InfoLine(Icons.Rounded.Person, "Driver", child.transportDriverName)
+                            if (child.transportLicensePlate.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Plate", child.transportLicensePlate)
+                            if (child.pickupInfo.isNotBlank()) InfoLine(Icons.Rounded.Home, "Pickup", child.pickupInfo)
+                            if (child.dropOffInfo.isNotBlank()) InfoLine(Icons.Rounded.School, "Drop-off", child.dropOffInfo)
+                            if (child.transportationNotes.isNotBlank()) {
+                                Text("Note: ${child.transportationNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("Homework & Forms", SchoolYellow) {
                     Column {
                         val tasks = vm.items.filter { it.childId == childId && it.category in listOf(Category.HOMEWORK, Category.FORM_DUE, Category.BRING_ITEM) }
@@ -673,6 +710,14 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
     var school by remember { mutableStateOf(child.schoolName) }
     var schoolPhone by remember { mutableStateOf(child.schoolPhone) }
     var notes by remember { mutableStateOf(child.specialNotes) }
+    var transportationType by remember { mutableStateOf(child.transportationType) }
+    var busNumber by remember { mutableStateOf(child.busNumber) }
+    var transportDriverName by remember { mutableStateOf(child.transportDriverName) }
+    var transportLicensePlate by remember { mutableStateOf(child.transportLicensePlate) }
+    var pickupInfo by remember { mutableStateOf(child.pickupInfo) }
+    var dropOffInfo by remember { mutableStateOf(child.dropOffInfo) }
+    var transportationNotes by remember { mutableStateOf(child.transportationNotes) }
+    val transportationTypes = listOf("School Bus", "Parent / Caregiver", "Walk", "Other")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -686,12 +731,64 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
                 item { OutlinedTextField(room, { room = it }, label = { Text("Room") }, singleLine = true) }
                 item { OutlinedTextField(school, { school = it }, label = { Text("School") }, singleLine = true) }
                 item { OutlinedTextField(schoolPhone, { schoolPhone = it }, label = { Text("School phone") }, singleLine = true) }
+                item {
+                    Text("Transportation", color = Ink, fontWeight = FontWeight.Bold)
+                }
+                item {
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = transportationType.isBlank(),
+                            onClick = { transportationType = "" },
+                            label = { Text("Not set") }
+                        )
+                        transportationTypes.forEach { type ->
+                            FilterChip(
+                                selected = transportationType == type,
+                                onClick = { transportationType = type },
+                                label = { Text(type) }
+                            )
+                        }
+                    }
+                }
+                if (transportationType == "School Bus") {
+                    item { OutlinedTextField(busNumber, { busNumber = it }, label = { Text("Bus / route number") }, singleLine = true) }
+                    item { OutlinedTextField(transportDriverName, { transportDriverName = it }, label = { Text("Driver name") }, singleLine = true) }
+                    item { OutlinedTextField(transportLicensePlate, { transportLicensePlate = it }, label = { Text("Licence plate") }, singleLine = true) }
+                }
+                if (transportationType == "Parent / Caregiver" || transportationType == "Other") {
+                    item { OutlinedTextField(transportDriverName, { transportDriverName = it }, label = { Text("Driver / caregiver") }, singleLine = true) }
+                    item { OutlinedTextField(transportLicensePlate, { transportLicensePlate = it }, label = { Text("Vehicle / licence plate") }, singleLine = true) }
+                }
+                if (transportationType.isNotBlank()) {
+                    item { OutlinedTextField(pickupInfo, { pickupInfo = it }, label = { Text("Pickup info") }, placeholder = { Text("Time, stop, location…") }) }
+                    item { OutlinedTextField(dropOffInfo, { dropOffInfo = it }, label = { Text("Drop-off info") }, placeholder = { Text("Time, stop, location…") }) }
+                    item { OutlinedTextField(transportationNotes, { transportationNotes = it }, label = { Text("Transportation notes") }) }
+                }
                 item { OutlinedTextField(notes, { notes = it }, label = { Text("Special notes") }) }
             }
         },
         confirmButton = {
             Button(onClick = {
-                onSave(child.copy(grade = grade, teacherName = teacher, teacherEmail = email, classroomPhone = phone, room = room, schoolName = school, schoolPhone = schoolPhone, specialNotes = notes))
+                onSave(child.copy(
+                    grade = grade,
+                    teacherName = teacher,
+                    teacherEmail = email,
+                    classroomPhone = phone,
+                    room = room,
+                    schoolName = school,
+                    schoolPhone = schoolPhone,
+                    transportationType = transportationType,
+                    busNumber = busNumber,
+                    transportDriverName = transportDriverName,
+                    transportLicensePlate = transportLicensePlate,
+                    pickupInfo = pickupInfo,
+                    dropOffInfo = dropOffInfo,
+                    transportationNotes = transportationNotes,
+                    specialNotes = notes
+                ))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

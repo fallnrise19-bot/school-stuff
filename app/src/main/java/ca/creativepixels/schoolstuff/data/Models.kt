@@ -24,6 +24,7 @@ data class SchoolItem(
     val childId: String = "",
     val title: String,
     val category: String = Category.SCHOOL_EVENT,
+    val emoji: String? = null,
     val dateIso: String = LocalDate.now().toString(),
     val repeat: String = Repeat.ONE_TIME,
     val reminder: String = Reminder.NIGHT_BEFORE,

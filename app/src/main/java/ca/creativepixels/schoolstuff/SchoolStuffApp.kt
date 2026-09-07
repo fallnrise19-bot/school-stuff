@@ -16,6 +16,7 @@ import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -169,7 +170,7 @@ fun SchoolStuffApp(
             containerColor = Paper,
             bottomBar = {
                 if (childPage == null && !addingThing) {
-                    NavigationBar(containerColor = Color.White) {
+                    NavigationBar(containerColor = SoftBlue) {
                         MainTab.entries.forEach { item ->
                             NavigationBarItem(
                                 selected = tab == item,
@@ -1379,7 +1380,9 @@ private fun CollapsibleSettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = .10f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = .32f)),
         shape = RoundedCornerShape(20.dp)
     ) {
         Row(
@@ -1387,7 +1390,7 @@ private fun CollapsibleSettingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = .14f)),
+                modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = .22f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(23.dp))
@@ -1400,7 +1403,7 @@ private fun CollapsibleSettingsCard(
             Icon(
                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 contentDescription = if (expanded) tr("Collapse $title", "Réduire $title") else tr("Expand $title", "Développer $title"),
-                tint = Ink.copy(alpha = .55f)
+                tint = accent
             )
         }
         if (expanded) {
@@ -1556,7 +1559,7 @@ private fun SettingsScreen(
                 title = tr("Language", "Langue"),
                 summary = if (appLanguage == AppLanguage.FRENCH) "Français" else "English",
                 icon = Icons.Rounded.Language,
-                accent = SchoolYellow,
+                accent = Color(0xFFC98A00),
                 expanded = expandedSettingsSection == "language",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "language") null else "language" }
             ) {
@@ -1590,7 +1593,7 @@ private fun SettingsScreen(
                     else -> tr("Connected · ${selected.size} calendar${if (selected.size == 1) "" else "s"} selected", "Connecté · ${selected.size} calendrier${if (selected.size == 1) "" else "s"} sélectionné${if (selected.size == 1) "" else "s"}")
                 },
                 icon = Icons.Rounded.CalendarMonth,
-                accent = SchoolBlue,
+                accent = Color(0xFF287AC8),
                 expanded = expandedSettingsSection == "calendar",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "calendar") null else "calendar" }
             ) {
@@ -1725,7 +1728,7 @@ private fun SettingsScreen(
                     tr("Off · tap to set up reminders", "Désactivées · touchez pour configurer les rappels")
                 },
                 icon = Icons.Rounded.Notifications,
-                accent = SchoolGreen,
+                accent = Color(0xFF2C9A60),
                 expanded = expandedSettingsSection == "notifications",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "notifications") null else "notifications" }
             ) {
@@ -1848,7 +1851,7 @@ private fun SettingsScreen(
                 title = tr("Security", "Sécurité"),
                 summary = if (appLockEnabled) tr("App lock on · fingerprint, face, or phone lock", "Verrouillage activé · empreinte, visage ou téléphone") else tr("App lock off", "Verrouillage désactivé"),
                 icon = Icons.Rounded.Lock,
-                accent = SchoolPink,
+                accent = Color(0xFFD45680),
                 expanded = expandedSettingsSection == "security",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "security") null else "security" }
             ) {
@@ -1902,7 +1905,7 @@ private fun SettingsScreen(
                 title = tr("About ParentBell", "À propos de ParentBell"),
                 summary = tr("Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "Version ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"),
                 icon = Icons.Rounded.School,
-                accent = SchoolBlue,
+                accent = Color(0xFF6557B8),
                 expanded = expandedSettingsSection == "about",
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "about") null else "about" }
             ) {

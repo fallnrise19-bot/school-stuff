@@ -22,8 +22,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.1.6-item-controls"
+        versionCode = 27
+        versionName = "0.1.7-settings-contrast"
     }
 
     buildFeatures {

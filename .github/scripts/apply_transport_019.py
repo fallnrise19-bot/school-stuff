@@ -8,13 +8,22 @@ def require(value: str, label: str) -> None:
     if value not in text:
         raise SystemExit(f'Missing patch anchor: {label}')
 
-# Icon import.
+# Icon imports.
 icon_anchor = 'import androidx.compose.material.icons.rounded.DirectionsRun\n'
 if 'import androidx.compose.material.icons.rounded.DirectionsBus\n' not in text:
     require(icon_anchor, 'DirectionsRun import')
     text = text.replace(
         icon_anchor,
         'import androidx.compose.material.icons.rounded.DirectionsBus\n' + icon_anchor,
+        1,
+    )
+
+person_anchor = 'import androidx.compose.material.icons.rounded.Palette\n'
+if 'import androidx.compose.material.icons.rounded.Person\n' not in text:
+    require(person_anchor, 'Palette import')
+    text = text.replace(
+        person_anchor,
+        person_anchor + 'import androidx.compose.material.icons.rounded.Person\n',
         1,
     )
 

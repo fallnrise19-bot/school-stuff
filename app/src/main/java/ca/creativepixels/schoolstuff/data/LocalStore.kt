@@ -17,6 +17,26 @@ class LocalStore(context: Context) {
     fun loadDocuments(): List<SchoolDocument> = readList("documents")
     fun saveDocuments(value: List<SchoolDocument>) = writeList("documents", value)
 
+    fun loadTransportation(): List<TransportationInfo> =
+        readList<TransportationInfo?>("transportation")
+            .filterNotNull()
+            .map { info ->
+                TransportationInfo(
+                    childId = info.childId.orEmpty(),
+                    mode = info.mode.orEmpty().ifBlank { TransportationMode.BUS },
+                    busNumber = info.busNumber.orEmpty(),
+                    pickupPoint = info.pickupPoint.orEmpty(),
+                    driverName = info.driverName.orEmpty(),
+                    pickupInfo = info.pickupInfo.orEmpty()
+                )
+            }
+            .filter { it.childId.isNotBlank() }
+
+    fun saveTransportation(value: List<TransportationInfo>) = writeList("transportation", value)
+
+    fun getParentNotes(): String = prefs.getString("parent_notes", "").orEmpty()
+    fun setParentNotes(value: String) = prefs.edit().putString("parent_notes", value).apply()
+
     fun hasSeeded(): Boolean = prefs.getBoolean("seeded", false)
     fun markSeeded() = prefs.edit().putBoolean("seeded", true).apply()
 

@@ -22,8 +22,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.1.6-file-access"
+        versionCode = 19
+        versionName = "0.1.6-transport-notes"
     }
 
     buildFeatures {

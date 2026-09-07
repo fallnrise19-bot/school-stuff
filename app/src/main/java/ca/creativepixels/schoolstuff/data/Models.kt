@@ -43,6 +43,15 @@ data class SchoolDocument(
     val needsSignature: Boolean = false
 )
 
+data class TransportationInfo(
+    val childId: String,
+    val mode: String = TransportationMode.BUS,
+    val busNumber: String = "",
+    val pickupPoint: String = "",
+    val driverName: String = "",
+    val pickupInfo: String = ""
+)
+
 data class DeviceCalendar(
     val id: Long,
     val displayName: String,
@@ -98,4 +107,10 @@ object DocumentType {
     const val ARTWORK = "Artwork"
     const val PHOTO = "Photos"
     val all = listOf(FORM, REPORT_CARD, MEDICAL, ARTWORK, PHOTO)
+}
+
+object TransportationMode {
+    const val BUS = "Bus"
+    const val PRIVATE = "Private transportation"
+    val all = listOf(BUS, PRIVATE)
 }

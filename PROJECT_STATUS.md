@@ -1,6 +1,6 @@
 # School Stuff project status
 
-Current prototype: 0.1.6-file-access / versionCode 18
+Current prototype: 0.1.6-transport-notes / versionCode 19
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -10,6 +10,8 @@ Current prototype areas:
 - Recurring school routines
 - Homework, forms and bring-item tracking
 - Teacher and school information
+- Per-child bus or private transportation information
+- Compact Parent Notes notebook on Home
 - Papers and Memories references with categorized upload and Android file viewing
 - Android notifications
 - Android Calendar Provider import/write-back

@@ -44,6 +44,8 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Checkroom
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -54,9 +56,11 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalPizza
+import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
@@ -112,6 +116,8 @@ import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
+import ca.creativepixels.schoolstuff.data.TransportationInfo
+import ca.creativepixels.schoolstuff.data.TransportationMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -336,6 +342,7 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
     val today = LocalDate.now()
     val tomorrow = today.plusDays(1)
     var selectedChild by remember { mutableStateOf<String?>(null) }
+    var editingParentNotes by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -379,6 +386,9 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
             }
         }
         item {
+            ParentNotesCard(notes = vm.parentNotes, onEdit = { editingParentNotes = true })
+        }
+        item {
             DaySection("Today", today, SoftBlue, vm, selectedChild)
         }
         item {
@@ -412,6 +422,63 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
             }
         }
     }
+
+    if (editingParentNotes) {
+        ParentNotesDialog(
+            currentNotes = vm.parentNotes,
+            onDismiss = { editingParentNotes = false },
+            onSave = { notes ->
+                vm.saveParentNotes(notes)
+                editingParentNotes = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ParentNotesCard(notes: String, onEdit: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable(onClick = onEdit),
+        colors = CardDefaults.cardColors(containerColor = SoftYellow),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.MenuBook, null, tint = SchoolBlue, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Parent Notes", color = Ink, fontWeight = FontWeight.Bold)
+                Text(
+                    notes.ifBlank { "A little notebook for the things parents need to remember." },
+                    color = Ink.copy(alpha = .62f),
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            TextButton(onClick = onEdit) { Text(if (notes.isBlank()) "Add" else "Edit") }
+        }
+    }
+}
+
+@Composable
+private fun ParentNotesDialog(currentNotes: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var notes by remember(currentNotes) { mutableStateOf(currentNotes) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Parent Notes") },
+        text = {
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Quick notes") },
+                minLines = 4,
+                maxLines = 8
+            )
+        },
+        confirmButton = { Button(onClick = { onSave(notes) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -515,6 +582,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var uploadDocType by remember { mutableStateOf(DocumentType.FORM) }
     var choosingDocumentType by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var editingTransportation by remember { mutableStateOf(false) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -587,6 +655,39 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                         InfoLine(Icons.Rounded.Home, "School", child.schoolName.ifBlank { "Not added" })
                         InfoLine(Icons.Rounded.Call, "School phone", child.schoolPhone.ifBlank { "Not added" })
                         if (child.specialNotes.isNotBlank()) Text("Note: ${child.specialNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+        item {
+            val info = vm.transportationFor(childId)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section("Transportation", SchoolGreen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        if (info == null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("No transportation information added yet.", color = Ink.copy(alpha = .62f), modifier = Modifier.weight(1f))
+                            }
+                        } else if (info.mode == TransportationMode.PRIVATE) {
+                            InfoLine(Icons.Rounded.DirectionsCar, "Type", "Private transportation")
+                            Text(
+                                info.pickupInfo.ifBlank { "Add who is picking up, where and when." },
+                                color = Ink.copy(alpha = .7f),
+                                fontSize = 13.sp
+                            )
+                        } else {
+                            InfoLine(Icons.Rounded.DirectionsBus, "Bus number", info.busNumber.ifBlank { "Not added" })
+                            InfoLine(Icons.Rounded.LocationOn, "Pickup point", info.pickupPoint.ifBlank { "Not added" })
+                            InfoLine(Icons.Rounded.Person, "Driver", info.driverName.ifBlank { "Not added" })
+                            if (info.pickupInfo.isNotBlank()) Text(info.pickupInfo, color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                        }
+                        TextButton(onClick = { editingTransportation = true }) {
+                            Icon(Icons.Rounded.Edit, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (info == null) "Add transportation" else "Edit transportation")
+                        }
                     }
                 }
             }
@@ -681,6 +782,81 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             }
         )
     }
+
+    if (editingTransportation) {
+        TransportationDialog(
+            child = child,
+            current = vm.transportationFor(childId),
+            onDismiss = { editingTransportation = false },
+            onSave = { info ->
+                vm.saveTransportation(info)
+                editingTransportation = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun TransportationDialog(
+    child: ChildProfile,
+    current: TransportationInfo?,
+    onDismiss: () -> Unit,
+    onSave: (TransportationInfo) -> Unit
+) {
+    var mode by remember(current) { mutableStateOf(current?.mode ?: TransportationMode.BUS) }
+    var busNumber by remember(current) { mutableStateOf(current?.busNumber.orEmpty()) }
+    var pickupPoint by remember(current) { mutableStateOf(current?.pickupPoint.orEmpty()) }
+    var driverName by remember(current) { mutableStateOf(current?.driverName.orEmpty()) }
+    var pickupInfo by remember(current) { mutableStateOf(current?.pickupInfo.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${child.name}'s transportation") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    Text("Transportation type", color = Ink, fontWeight = FontWeight.Bold)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        TransportationMode.all.forEach { option ->
+                            FilterChip(selected = mode == option, onClick = { mode = option }, label = { Text(option) })
+                        }
+                    }
+                }
+                if (mode == TransportationMode.BUS) {
+                    item { OutlinedTextField(busNumber, { busNumber = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Bus number") }, singleLine = true) }
+                    item { OutlinedTextField(pickupPoint, { pickupPoint = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Pickup point or stop") }, singleLine = true) }
+                    item { OutlinedTextField(driverName, { driverName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Driver's name") }, singleLine = true) }
+                    item { OutlinedTextField(pickupInfo, { pickupInfo = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Pickup time or extra notes") }, minLines = 2, maxLines = 4) }
+                } else {
+                    item {
+                        OutlinedTextField(
+                            pickupInfo,
+                            { pickupInfo = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Who is picking up, where and when?") },
+                            minLines = 4,
+                            maxLines = 7
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onSave(
+                    TransportationInfo(
+                        childId = child.id,
+                        mode = mode,
+                        busNumber = busNumber.trim(),
+                        pickupPoint = pickupPoint.trim(),
+                        driverName = driverName.trim(),
+                        pickupInfo = pickupInfo.trim()
+                    )
+                )
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

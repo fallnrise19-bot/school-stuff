@@ -21,6 +21,10 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         private set
     var documents by mutableStateOf<List<SchoolDocument>>(emptyList())
         private set
+    var transportation by mutableStateOf<List<TransportationInfo>>(emptyList())
+        private set
+    var parentNotes by mutableStateOf("")
+        private set
 
     init {
         if (!store.hasSeeded()) {
@@ -35,6 +39,8 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
             items = store.loadItems()
         }
         documents = store.loadDocuments()
+        transportation = store.loadTransportation()
+        parentNotes = store.getParentNotes()
     }
 
     fun child(id: String): ChildProfile? = children.firstOrNull { it.id == id }
@@ -58,9 +64,11 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         items.filter { it.childId == childId }.forEach { ReminderScheduler.cancel(getApplication(), it.id) }
         items = items.filterNot { it.childId == childId }
         documents = documents.filterNot { it.childId == childId }
+        transportation = transportation.filterNot { it.childId == childId }
         store.saveChildren(children)
         store.saveItems(items)
         store.saveDocuments(documents)
+        store.saveTransportation(transportation)
     }
 
     fun addItem(item: SchoolItem) {
@@ -94,6 +102,19 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteDocument(documentId: String) {
         documents = documents.filterNot { it.id == documentId }
         store.saveDocuments(documents)
+    }
+
+    fun transportationFor(childId: String): TransportationInfo? =
+        transportation.firstOrNull { it.childId == childId }
+
+    fun saveTransportation(info: TransportationInfo) {
+        transportation = transportation.filterNot { it.childId == info.childId } + info
+        store.saveTransportation(transportation)
+    }
+
+    fun saveParentNotes(notes: String) {
+        parentNotes = notes.trim()
+        store.setParentNotes(parentNotes)
     }
 
     fun selectedCalendarIds(): Set<Long> = store.getSelectedCalendarIds()

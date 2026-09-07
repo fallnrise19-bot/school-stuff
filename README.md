@@ -3,8 +3,8 @@
 ParentBell is a parent-first Android school organizer: Today/Tomorrow reminders, multiple children, homework and forms, teacher/school details, document references, notifications, and Android/Google Calendar integration through the phone's Calendar Provider.
 
 ## Current build
-- Version: 0.1.6-parentbell
-- versionCode: 25
+- Version: 0.1.6-item-controls
+- versionCode: 26
 - Package: `ca.creativepixels.schoolstuff`
 - Minimum Android: 8.0 (API 26)
 - Target/compile SDK: 35
@@ -16,6 +16,8 @@ Every push to `main` runs `.github/workflows/build-debug-apk.yml` and uploads `P
 - School-themed Home dashboard with Today/Tomorrow
 - Oliver, Logan and Chloe starter profiles (editable/removeable)
 - Add School Thing form with category/date/repeat/reminder/notes
+- Safe delete controls on every listed school item
+- Monday-to-Friday date strip on each child dashboard
 - Recurring weekly school items
 - Homework / forms / bring-item tracker
 - Teacher & school information per child

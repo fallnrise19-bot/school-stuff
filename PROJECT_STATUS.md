@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current prototype: 0.1.6-parentbell / versionCode 25
+Current prototype: 0.1.6-item-controls / versionCode 26
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -13,6 +13,8 @@ Current prototype areas:
 - Per-child bus or private transportation information
 - Compact Parent Notes notebook on Home
 - Calendar date picker, category dropdown with Custom, and optional item emoji
+- Confirmed item deletion from dashboard lists
+- Monday-to-Friday date strip on child dashboards
 - Papers and Memories references with categorized upload and Android file viewing
 - Notification permission status, adjustable reminder times, a default reminder, and a test notification
 - Compact accordion-style Settings cards so only one group of controls is open at a time

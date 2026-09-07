@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Checkroom
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.DirectionsRun
@@ -289,7 +290,12 @@ private fun Section(title: String, tint: Color = SchoolBlue, content: @Composabl
 }
 
 @Composable
-private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Composable (() -> Unit)? = null) {
+private fun SchoolRow(
+    vm: SchoolStuffViewModel,
+    item: SchoolItem,
+    trailing: @Composable (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -313,6 +319,47 @@ private fun SchoolRow(vm: SchoolStuffViewModel, item: SchoolItem, trailing: @Com
             Text("$who • ${categoryLabel(item.category)}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
         }
         trailing?.invoke()
+        if (onDelete != null) {
+            DeleteSchoolItemButton(item = item, onDelete = onDelete)
+        }
+    }
+}
+
+@Composable
+private fun DeleteSchoolItemButton(item: SchoolItem, onDelete: () -> Unit) {
+    var confirmingDelete by remember(item.id) { mutableStateOf(false) }
+
+    IconButton(onClick = { confirmingDelete = true }) {
+        Icon(
+            Icons.Rounded.Delete,
+            contentDescription = tr("Remove ${item.title}", "Supprimer ${item.title}"),
+            tint = SchoolRed.copy(alpha = .78f)
+        )
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text(tr("Remove ${item.title}?", "Supprimer ${item.title} ?")) },
+            text = {
+                Text(
+                    if (item.repeat == Repeat.ONE_TIME) {
+                        tr("This removes it from ParentBell.", "Cet élément sera supprimé de ParentBell.")
+                    } else {
+                        tr("This removes the item and all of its future repeats.", "Cet élément et toutes ses répétitions futures seront supprimés.")
+                    }
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmingDelete = false
+                    onDelete()
+                }) { Text(tr("Remove", "Supprimer")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDelete = false }) { Text(tr("Cancel", "Annuler")) }
+            }
+        )
     }
 }
 
@@ -529,7 +576,7 @@ private fun DaySection(
                     Text(tr("Nothing on the list. Suspiciously peaceful.", "Rien sur la liste. C’est presque suspect."), color = Ink.copy(alpha = .6f), modifier = Modifier.padding(vertical = 14.dp))
                 } else {
                     list.forEachIndexed { index, item ->
-                        SchoolRow(vm, item)
+                        SchoolRow(vm, item, onDelete = { vm.deleteItem(item.id) })
                         if (index != list.lastIndex) HorizontalDivider(color = Ink.copy(alpha = .08f))
                     }
                 }
@@ -607,6 +654,41 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
 }
 
 @Composable
+private fun WorkWeekStrip(weekdays: List<LocalDate>, today: LocalDate) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        weekdays.forEach { date ->
+            val isToday = date == today
+            Surface(
+                modifier = Modifier.weight(1f),
+                color = if (isToday) SchoolBlue else SoftBlue,
+                shape = RoundedCornerShape(13.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 7.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        date.format(DateTimeFormatter.ofPattern("EEE")).trimEnd('.').uppercase(),
+                        color = if (isToday) Color.White else Ink.copy(alpha = .62f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        date.dayOfMonth.toString(),
+                        color = if (isToday) Color.White else Ink,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () -> Unit, onAddThing: () -> Unit) {
     val child = vm.child(childId) ?: return
     val context = LocalContext.current
@@ -664,12 +746,30 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section(tr("This Week", "Cette semaine"), SchoolGreen) {
                     Column {
-                        val next = vm.upcoming(7).filter { it.second.childId == childId }.take(6)
-                        if (next.isEmpty()) Text(tr("Nothing scheduled yet.", "Rien de prévu pour le moment."), modifier = Modifier.padding(vertical = 12.dp))
-                        next.forEach { (date, item) ->
-                            SchoolRow(vm, item) {
-                                Text(date.format(DateTimeFormatter.ofPattern("EEE")), color = Ink.copy(alpha = .6f), fontSize = 12.sp)
-                            }
+                        val today = LocalDate.now()
+                        val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                        val weekdays = (0L..4L).map { monday.plusDays(it) }
+                        WorkWeekStrip(weekdays = weekdays, today = today)
+                        Spacer(Modifier.height(5.dp))
+                        val weekItems = weekdays.flatMap { date ->
+                            vm.itemsFor(date)
+                                .filter { it.childId == childId }
+                                .map { date to it }
+                        }
+                        if (weekItems.isEmpty()) Text(tr("Nothing scheduled yet.", "Rien de prévu pour le moment."), modifier = Modifier.padding(vertical = 12.dp))
+                        weekItems.forEach { (date, item) ->
+                            SchoolRow(
+                                vm = vm,
+                                item = item,
+                                trailing = {
+                                    Text(
+                                        date.format(DateTimeFormatter.ofPattern("EEE d")),
+                                        color = Ink.copy(alpha = .6f),
+                                        fontSize = 12.sp
+                                    )
+                                },
+                                onDelete = { vm.deleteItem(item.id) }
+                            )
                             HorizontalDivider(color = Ink.copy(alpha = .07f))
                         }
                         TextButton(onClick = onAddThing) { Icon(Icons.Rounded.Add, null); Text(tr("Add school thing", "Ajouter un élément scolaire")) }
@@ -733,7 +833,9 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                         tasks.forEach { item ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = item.completed, onCheckedChange = { vm.toggleComplete(item.id) })
-                                Box(Modifier.weight(1f)) { SchoolRow(vm, item) }
+                                Box(Modifier.weight(1f)) {
+                                    SchoolRow(vm, item, onDelete = { vm.deleteItem(item.id) })
+                                }
                             }
                         }
                     }
@@ -1255,7 +1357,9 @@ private fun CalendarScreen(vm: SchoolStuffViewModel) {
                 ) {
                     Column(Modifier.padding(14.dp)) {
                         Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)), color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                        dayItems.forEach { SchoolRow(vm, it) }
+                        dayItems.forEach { item ->
+                            SchoolRow(vm, item, onDelete = { vm.deleteItem(item.id) })
+                        }
                     }
                 }
             }

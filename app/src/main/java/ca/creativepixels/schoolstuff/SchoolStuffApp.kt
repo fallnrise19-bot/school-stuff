@@ -604,14 +604,21 @@ private fun ChildScreen(
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section("Transportation", SchoolGreen) {
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        val transportationType = nullableString(child.transportationType)
+                        val busNumber = nullableString(child.busNumber)
+                        val driverName = nullableString(child.transportDriverName)
+                        val licensePlate = nullableString(child.transportLicensePlate)
+                        val pickupInfo = nullableString(child.pickupInfo)
+                        val dropOffInfo = nullableString(child.dropOffInfo)
+                        val transportationNotes = nullableString(child.transportationNotes)
                         val hasTransportInfo = listOf(
-                            child.transportationType,
-                            child.busNumber,
-                            child.transportDriverName,
-                            child.transportLicensePlate,
-                            child.pickupInfo,
-                            child.dropOffInfo,
-                            child.transportationNotes
+                            transportationType,
+                            busNumber,
+                            driverName,
+                            licensePlate,
+                            pickupInfo,
+                            dropOffInfo,
+                            transportationNotes
                         ).any { it.isNotBlank() }
 
                         if (!hasTransportInfo) {
@@ -621,14 +628,14 @@ private fun ChildScreen(
                                 Text("No transportation details added yet.", color = Ink.copy(alpha = .62f))
                             }
                         } else {
-                            if (child.transportationType.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Type", child.transportationType)
-                            if (child.busNumber.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Bus / route", child.busNumber)
-                            if (child.transportDriverName.isNotBlank()) InfoLine(Icons.Rounded.Person, "Driver", child.transportDriverName)
-                            if (child.transportLicensePlate.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Plate", child.transportLicensePlate)
-                            if (child.pickupInfo.isNotBlank()) InfoLine(Icons.Rounded.Home, "Pickup", child.pickupInfo)
-                            if (child.dropOffInfo.isNotBlank()) InfoLine(Icons.Rounded.School, "Drop-off", child.dropOffInfo)
-                            if (child.transportationNotes.isNotBlank()) {
-                                Text("Note: ${child.transportationNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                            if (transportationType.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Type", transportationType)
+                            if (busNumber.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Bus / route", busNumber)
+                            if (driverName.isNotBlank()) InfoLine(Icons.Rounded.Person, "Driver", driverName)
+                            if (licensePlate.isNotBlank()) InfoLine(Icons.Rounded.DirectionsBus, "Plate", licensePlate)
+                            if (pickupInfo.isNotBlank()) InfoLine(Icons.Rounded.Home, "Pickup", pickupInfo)
+                            if (dropOffInfo.isNotBlank()) InfoLine(Icons.Rounded.School, "Drop-off", dropOffInfo)
+                            if (transportationNotes.isNotBlank()) {
+                                Text("Note: $transportationNotes", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
                             }
                         }
                     }
@@ -691,6 +698,9 @@ private fun ChildScreen(
         EditChildDialog(child, onDismiss = { editing = false }, onSave = { vm.updateChild(it); editing = false })
     }
 }
+
+// Gson can surface null from legacy JSON even for a Kotlin property declared non-null.
+private fun nullableString(value: String?): String = value.orEmpty()
 
 @Composable
 private fun InfoLine(icon: ImageVector, label: String, value: String) {

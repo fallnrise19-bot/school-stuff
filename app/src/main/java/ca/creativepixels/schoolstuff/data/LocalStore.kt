@@ -2,19 +2,18 @@ package ca.creativepixels.schoolstuff.data
 
 import android.content.Context
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
 class LocalStore(context: Context) {
     private val prefs = context.getSharedPreferences("school_stuff_store", Context.MODE_PRIVATE)
     private val gson = Gson()
 
-    fun loadChildren(): List<ChildProfile> = readList("children")
+    fun loadChildren(): List<ChildProfile> = readAndRepair("children", StoredDataMigration::children, ::saveChildren)
     fun saveChildren(value: List<ChildProfile>) = writeList("children", value)
 
-    fun loadItems(): List<SchoolItem> = readList("items")
+    fun loadItems(): List<SchoolItem> = readAndRepair("items", StoredDataMigration::items, ::saveItems)
     fun saveItems(value: List<SchoolItem>) = writeList("items", value)
 
-    fun loadDocuments(): List<SchoolDocument> = readList("documents")
+    fun loadDocuments(): List<SchoolDocument> = readAndRepair("documents", StoredDataMigration::documents, ::saveDocuments)
     fun saveDocuments(value: List<SchoolDocument>) = writeList("documents", value)
 
     fun hasSeeded(): Boolean = prefs.getBoolean("seeded", false)
@@ -33,12 +32,15 @@ class LocalStore(context: Context) {
         editor.apply()
     }
 
-    private inline fun <reified T> readList(key: String): List<T> {
+    private fun <T> readAndRepair(
+        key: String,
+        decode: (String) -> List<T>?,
+        save: (List<T>) -> Unit
+    ): List<T> {
         val raw = prefs.getString(key, null) ?: return emptyList()
-        return runCatching {
-            val type = object : TypeToken<List<T>>() {}.type
-            gson.fromJson<List<T>>(raw, type) ?: emptyList()
-        }.getOrElse { emptyList() }
+        val repaired = decode(raw) ?: return emptyList()
+        save(repaired)
+        return repaired
     }
 
     private fun <T> writeList(key: String, value: List<T>) {

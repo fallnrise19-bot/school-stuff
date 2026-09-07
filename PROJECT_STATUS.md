@@ -1,6 +1,6 @@
 # School Stuff project status
 
-Current prototype: 0.1.14 / versionCode 15
+Current prototype: 0.1.15 / versionCode 16
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -14,4 +14,4 @@ Current prototype areas:
 - Android notifications
 - Android Calendar Provider import/write-back
 
-Current test focus: verify child-profile scrolling on Samsung after isolating the gallery from the profile and replacing live Coil previews with bounded software bitmap decoding. If the device still crashes, reopen the debug app and copy the captured stack trace from the diagnostic dialog. Subscription/cloud architecture remains next only after this crash is confirmed fixed on hardware.
+Current test focus: verify child-profile scrolling on Samsung after build 15's report identified a legacy-null transportation field at `SchoolStuffApp.kt:615`. Build 16 repairs older saved children/items/documents on load and adds a second defensive null boundary in the Transportation UI. Subscription/cloud architecture remains next only after this crash is confirmed fixed on hardware.

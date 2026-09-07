@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Process
 import android.text.method.ScrollingMovementMethod
@@ -42,6 +43,7 @@ internal object CrashDiagnostics {
             setTextIsSelectable(true)
             movementMethod = ScrollingMovementMethod()
             setPadding(36, 16, 36, 8)
+            maxHeight = (activity.resources.displayMetrics.heightPixels * 0.42f).toInt()
         }
 
         AlertDialog.Builder(activity)
@@ -51,6 +53,14 @@ internal object CrashDiagnostics {
             .setPositiveButton("Copy report") { _, _ ->
                 val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("School Stuff crash report", report))
+                file.delete()
+            }
+            .setNeutralButton("Share report") { _, _ ->
+                val shareIntent = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, "School Stuff crash report")
+                    .putExtra(Intent.EXTRA_TEXT, report)
+                activity.startActivity(Intent.createChooser(shareIntent, "Share crash report"))
                 file.delete()
             }
             .setNegativeButton("Dismiss") { _, _ -> file.delete() }

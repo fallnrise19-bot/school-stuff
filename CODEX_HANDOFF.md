@@ -6,7 +6,7 @@ Read this before changing anything. Continue the existing Android project; do no
 
 - GitHub repo: `fallnrise19-bot/school-stuff`
 - Android package: `ca.creativepixels.schoolstuff`
-- Current app version: **0.1.14 / versionCode 15**
+- Current app version: **0.1.15 / versionCode 16**
 - The Google Drive folder is **School Stuff**.
 - A current source ZIP is being placed in that Drive folder for Codex as well.
 
@@ -14,9 +14,13 @@ Read this before changing anything. Continue the existing Android project; do no
 
 Samsung testing confirmed that 0.1.13/build 14 still closes from a child profile and Samsung displays “School Stuff closed because this app has a bug.” This confirms an actual process crash, not merely Android Back navigation or the launcher stealing a gesture. The user identified that the failure began when the popup/image gallery replaced the old filename-only Papers & Memories list.
 
+Build 15's debug crash recorder exposed the exact root cause: `java.lang.NullPointerException` from `StringsKt.isBlank` at `SchoolStuffApp.kt:615`, inside the Transportation section. Older child JSON had been saved before the transportation properties existed. Gson bypassed Kotlin constructor defaults and populated those nominally non-null strings with runtime nulls. The crash appeared on the first scroll because that is when LazyColumn composed Transportation. The gallery timing was coincidental.
+
+0.1.15/build 16 fixes the persistence boundary, not only the visible line. `StoredDataMigration` decodes children, items, and documents through nullable storage DTOs, supplies safe defaults for every missing/null property, and immediately saves the normalized model back to local storage. Transportation also converts legacy values through an explicitly nullable helper before using `isNotBlank`, giving the UI a second safety layer. Unit tests cover both missing fields and explicit JSON nulls. No user data should be cleared to apply the fix.
+
 0.1.14/build 15 therefore isolates all gallery work in `DocumentGalleryScreen.kt` behind a real `Gallery(childId)` destination. `ChildScreen` no longer initializes the document picker, URI provider calls, image loader, bitmap decoder, preview dialog, or gallery scroll state. It displays only a document count and a button that navigates to the gallery. The live gallery no longer uses Coil for user files; it decodes only visible rows, on `Dispatchers.IO`, into bounded software bitmaps (320px thumbnails and 1400px previews) and catches unreadable/expired URIs. This avoids both eager memory pressure and Samsung hardware-bitmap rendering paths while keeping artwork and photos viewable.
 
-Build 15 also installs a debug-only uncaught-exception recorder. If the device still crashes, reopening School Stuff presents the exact Java/Kotlin stack trace with a `Copy report` button. Do not guess at another fix if that report is available; use it.
+Build 15 also installed a debug-only uncaught-exception recorder. Build 16 constrains that report view so its buttons remain visible and adds a `Share report` option. If the device still crashes, use the captured report rather than guessing.
 
 The child-profile navigation/gesture problem was reworked in 0.1.13 and is **not considered closed until the user verifies it on the Samsung device**.
 
@@ -141,12 +145,12 @@ After the child-profile swipe/close bug is fixed, the user wants to continue sub
 - Inspect the current source before patching.
 - Keep working features intact, especially the calendar fix.
 - Build after meaningful changes and inspect compiler/runtime implications instead of handing the user speculative code.
-- For the swipe/close bug, 0.1.12 and 0.1.13 both failed in real-device testing. 0.1.14 isolates/rebuilds the gallery path and requires device confirmation.
+- For the swipe/close bug, 0.1.12 through 0.1.14 failed in real-device testing. Build 15 produced the decisive stack trace; 0.1.15/build 16 contains the migration fix and requires device confirmation.
 
 ## CURRENT HANDOFF POINT
 
 The immediate next task is:
 
-**Have the user install and test 0.1.14 build 15 on the Android/Samsung phone. Verify child-profile scrolling before and after opening the gallery. If it crashes, reopen the app and copy the captured report.**
+**Have the user install and test 0.1.15 build 16 on the Android/Samsung phone. Open each existing child profile and scroll through Transportation and Papers & Memories. No cache/data clearing is needed.**
 
 Once that is stable, proceed with account sharing, subscription architecture, and the next requested features.

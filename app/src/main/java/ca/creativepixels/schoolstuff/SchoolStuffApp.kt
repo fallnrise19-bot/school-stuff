@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
@@ -99,11 +100,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import ca.creativepixels.schoolstuff.calendar.CalendarProviderRepository
 import ca.creativepixels.schoolstuff.data.Category
@@ -114,6 +117,7 @@ import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
+import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -522,6 +526,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     val context = LocalContext.current
     var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
     var editing by remember { mutableStateOf(false) }
+    var previewDocument by remember { mutableStateOf<SchoolDocument?>(null) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -659,12 +664,30 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             }
                         }
                         val docs = vm.documents.filter { it.childId == childId && it.type == selectedDocType }
-                        docs.forEach { doc ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                                Icon(documentIcon(doc.type), null, tint = SchoolBlue)
-                                Spacer(Modifier.width(10.dp))
-                                Text(doc.title, color = Ink, modifier = Modifier.weight(1f), maxLines = 2)
-                                TextButton(onClick = { vm.deleteDocument(doc.id) }) { Text("Remove") }
+                        if (docs.isEmpty()) {
+                            Text(
+                                "Nothing saved here yet.",
+                                color = Ink.copy(alpha = .58f),
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            Text(
+                                "Tap a thumbnail to open it.",
+                                color = Ink.copy(alpha = .58f),
+                                fontSize = 12.sp
+                            )
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                docs.forEachIndexed { index, doc ->
+                                    DocumentGalleryTile(
+                                        doc = doc,
+                                        index = index,
+                                        onOpenImage = { previewDocument = doc },
+                                        onRemove = { vm.deleteDocument(doc.id) }
+                                    )
+                                }
                             }
                         }
                         OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/*", "application/pdf")) }) {
@@ -678,9 +701,152 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         }
     }
 
+    previewDocument?.let { doc ->
+        Dialog(onDismissRequest = { previewDocument = null }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            friendlyDocumentLabel(doc, 0),
+                            color = Ink,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { previewDocument = null }) { Text("Close") }
+                    }
+                    AsyncImage(
+                        model = doc.uri,
+                        contentDescription = doc.title,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(500.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Paper),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        friendlyDocumentDate(doc),
+                        color = Ink.copy(alpha = .55f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+
     if (editing) {
         EditChildDialog(child, onDismiss = { editing = false }, onSave = { vm.updateChild(it); editing = false })
     }
+}
+
+@Composable
+private fun DocumentGalleryTile(
+    doc: SchoolDocument,
+    index: Int,
+    onOpenImage: () -> Unit,
+    onRemove: () -> Unit
+) {
+    val context = LocalContext.current
+    val mimeType = remember(doc.uri) {
+        runCatching { context.contentResolver.getType(Uri.parse(doc.uri)) }.getOrNull().orEmpty()
+    }
+    val isImage = mimeType.startsWith("image/") || doc.title.endsWith(".png", true) ||
+        doc.title.endsWith(".jpg", true) || doc.title.endsWith(".jpeg", true) ||
+        doc.title.endsWith(".webp", true) || doc.title.endsWith(".gif", true)
+
+    Card(
+        modifier = Modifier.width(118.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(92.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isImage) Paper else SoftBlue)
+                    .clickable {
+                        if (isImage) {
+                            onOpenImage()
+                        } else {
+                            openDocumentExternally(context, doc, mimeType)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isImage) {
+                    AsyncImage(
+                        model = doc.uri,
+                        contentDescription = doc.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            documentIcon(doc.type),
+                            contentDescription = null,
+                            tint = SchoolBlue,
+                            modifier = Modifier.size(34.dp)
+                        )
+                        Text("Open file", color = Ink.copy(alpha = .62f), fontSize = 11.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                friendlyDocumentLabel(doc, index),
+                color = Ink,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(friendlyDocumentDate(doc), color = Ink.copy(alpha = .48f), fontSize = 10.sp)
+            TextButton(
+                onClick = onRemove,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+            ) {
+                Text("Remove", fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+private fun friendlyDocumentLabel(doc: SchoolDocument, index: Int): String {
+    val genericName = doc.title.startsWith("file_", ignoreCase = true) ||
+        doc.title.matches(Regex(".*[0-9a-fA-F]{16,}.*"))
+    if (!genericName && doc.title.length <= 28) return doc.title
+
+    val singular = when (doc.type) {
+        DocumentType.REPORT_CARD -> "Report Card"
+        DocumentType.ARTWORK -> "Artwork"
+        DocumentType.PHOTO -> "Photo"
+        else -> "Form"
+    }
+    return "$singular ${index + 1}"
+}
+
+private fun friendlyDocumentDate(doc: SchoolDocument): String =
+    java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
+        .format(java.util.Date(doc.addedAtMillis))
+
+private fun openDocumentExternally(context: android.content.Context, doc: SchoolDocument, knownMime: String) {
+    val uri = Uri.parse(doc.uri)
+    val mime = knownMime.ifBlank { context.contentResolver.getType(uri).orEmpty().ifBlank { "*/*" } }
+    val intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(uri, mime)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { context.startActivity(Intent.createChooser(intent, "Open school file")) }
 }
 
 @Composable

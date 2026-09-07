@@ -1,0 +1,33 @@
+name: Package Current Source for Codex
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/package-current-source-for-codex.yml"
+  workflow_dispatch:
+
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current source
+        uses: actions/checkout@v4
+
+      - name: Create clean source ZIP
+        run: |
+          mkdir -p out
+          zip -r out/SchoolStuff-0.1.12-build13-current-source.zip . \
+            -x '.git/*' \
+            -x 'out/*' \
+            -x '**/build/*' \
+            -x '.gradle/*' \
+            -x 'local.properties'
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: SchoolStuff-0.1.12-build13-current-source
+          path: out/SchoolStuff-0.1.12-build13-current-source.zip
+          if-no-files-found: error
+          retention-days: 14

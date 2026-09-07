@@ -1,0 +1,60 @@
+name: Apply Back Navigation Fix 0.1.12
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/apply-back-navigation-fix-0112.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply system back navigation fix
+        run: python3 .github/scripts/apply_back_navigation_fix_0112.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SchoolStuff-0.1.12-build13-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit successful navigation fix
+        run: |
+          git config user.name "fallnrise19-bot"
+          git config user.email "fall.n.rise19@gmail.com"
+          git add app/src/main/java/ca/creativepixels/schoolstuff/SchoolStuffApp.kt app/build.gradle.kts
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix Android back gesture inside child screens"
+            git push
+          fi

@@ -26,9 +26,9 @@ object ReminderNotifications {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                trFor(language, "School reminders", "Rappels scolaires"),
+                trFor(language, "ParentBell reminders", "Rappels ParentBell"),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = trFor(language, "School Stuff reminders", "Rappels de School Stuff") }
+            ).apply { description = trFor(language, "ParentBell reminders", "Rappels de ParentBell") }
         )
     }
 
@@ -41,7 +41,7 @@ object ReminderNotifications {
     fun build(context: Context, body: String, details: String = body) =
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_school_stuff)
-            .setContentTitle("School Stuff")
+            .setContentTitle("ParentBell")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(details))
             .setContentIntent(openAppIntent(context))

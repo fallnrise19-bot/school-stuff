@@ -103,7 +103,7 @@ class MainActivity : FragmentActivity() {
                         ) {
                             Icon(Icons.Rounded.Lock, contentDescription = null, tint = SchoolBlue)
                             Spacer(Modifier.height(14.dp))
-                            Text(tr("School Stuff is locked", "School Stuff est verrouillée"), color = Ink, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                            Text(tr("ParentBell is locked", "ParentBell est verrouillée"), color = Ink, fontWeight = FontWeight.Black, fontSize = 24.sp)
                             Text(tr("Use your fingerprint, face, or phone screen lock to continue.", "Utilisez votre empreinte, votre visage ou le verrouillage de l’écran pour continuer."), color = Ink.copy(alpha = .65f))
                             if (lockMessage.isNotBlank()) {
                                 Spacer(Modifier.height(8.dp))
@@ -143,7 +143,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun requestUnlock() {
-        authenticate(tr("Unlock School Stuff", "Déverrouiller School Stuff")) { success, message ->
+        authenticate(tr("Unlock ParentBell", "Déverrouiller ParentBell")) { success, message ->
             if (success) {
                 appUnlocked = true
                 lockMessage = ""
@@ -154,7 +154,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun changeAppLock(enable: Boolean, result: (Boolean, String) -> Unit) {
-        authenticate(if (enable) tr("Turn on School Stuff lock", "Activer le verrouillage de School Stuff") else tr("Turn off School Stuff lock", "Désactiver le verrouillage de School Stuff")) { success, message ->
+        authenticate(if (enable) tr("Turn on ParentBell lock", "Activer le verrouillage de ParentBell") else tr("Turn off ParentBell lock", "Désactiver le verrouillage de ParentBell")) { success, message ->
             if (success) {
                 store.setAppLockEnabled(enable)
                 appLockEnabled = enable
@@ -168,7 +168,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun testAppLock(result: (Boolean, String) -> Unit) {
-        authenticate(tr("Test School Stuff unlock", "Tester le déverrouillage de School Stuff")) { success, message ->
+        authenticate(tr("Test ParentBell unlock", "Tester le déverrouillage de ParentBell")) { success, message ->
             result(success, if (success) tr("Unlock test worked.", "Le test de déverrouillage a réussi.") else message)
         }
     }

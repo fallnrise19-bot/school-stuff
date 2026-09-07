@@ -381,7 +381,7 @@ private fun HomeScreen(vm: SchoolStuffViewModel, onAdd: () -> Unit, onChild: (St
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header("School Stuff", tr("Little things. Big school days. ♥", "Petites choses. Grandes journées d’école. ♥"), note = tr("You got this!", "Vous êtes capable !")) }
+        item { Header("ParentBell", tr("Little things. Big school days. ♥", "Petites choses. Grandes journées d’école. ♥"), note = tr("You got this!", "Vous êtes capable !")) }
         item { HomeMockupHero() }
         item {
             Row(
@@ -1458,7 +1458,7 @@ private fun SettingsScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        tr("Choose the language used throughout School Stuff.", "Choisissez la langue utilisée dans School Stuff."),
+                        tr("Choose the language used throughout ParentBell.", "Choisissez la langue utilisée dans ParentBell."),
                         color = Ink.copy(alpha = .68f),
                         fontSize = 13.sp
                     )
@@ -1495,7 +1495,7 @@ private fun SettingsScreen(
                             MockupArtImage(MockupAsset.BOOKS, Modifier.size(54.dp), "School calendar")
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                tr("School Stuff reads Google calendars already synced to this phone. Pick only the calendars you want to see.", "School Stuff lit les calendriers Google déjà synchronisés avec ce téléphone. Choisissez seulement ceux que vous voulez voir."),
+                                tr("ParentBell reads Google calendars already synced to this phone. Pick only the calendars you want to see.", "ParentBell lit les calendriers Google déjà synchronisés avec ce téléphone. Choisissez seulement ceux que vous voulez voir."),
                                 color = Ink.copy(alpha = .68f),
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -1526,7 +1526,7 @@ private fun SettingsScreen(
                                 ) {
                                     Column(Modifier.weight(1f)) {
                                         Text(
-                                            tr("Calendars shown in School Stuff · ${selectedVisible.size} selected", "Calendriers affichés dans School Stuff · ${selectedVisible.size} sélectionné${if (selectedVisible.size == 1) "" else "s"}"),
+                                            tr("Calendars shown in ParentBell · ${selectedVisible.size} selected", "Calendriers affichés dans ParentBell · ${selectedVisible.size} sélectionné${if (selectedVisible.size == 1) "" else "s"}"),
                                             color = Ink,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp
@@ -1603,9 +1603,9 @@ private fun SettingsScreen(
                                     message = tr("Choose a selected calendar as the write destination first.", "Choisissez d’abord un calendrier sélectionné comme destination d’écriture.")
                                 } else {
                                     val count = vm.items.count { repo.upsertSchoolItem(target, it) }
-                                    message = tr("$count School Stuff events synced.", "$count événements School Stuff synchronisés.")
+                                    message = tr("$count ParentBell events synced.", "$count événements ParentBell synchronisés.")
                                 }
-                            }, enabled = defaultId != null) { Text(tr("Sync School Stuff Out", "Synchroniser vers Google")) }
+                            }, enabled = defaultId != null) { Text(tr("Sync ParentBell Out", "Synchroniser ParentBell vers Google")) }
 
                             if (message.isNotBlank()) Text(message, color = Ink.copy(alpha = .68f), fontSize = 12.sp)
                         }
@@ -1636,7 +1636,7 @@ private fun SettingsScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    if (notificationsEnabled) tr("School Stuff can send the reminders chosen on your items.", "School Stuff peut envoyer les rappels choisis pour vos éléments.")
+                                    if (notificationsEnabled) tr("ParentBell can send the reminders chosen on your items.", "ParentBell peut envoyer les rappels choisis pour vos éléments.")
                                     else tr("Allow notifications so school reminders can reach you.", "Autorisez les notifications pour recevoir les rappels scolaires."),
                                     color = Ink.copy(alpha = .62f),
                                     fontSize = 12.sp
@@ -1761,7 +1761,7 @@ private fun SettingsScreen(
                     }
 
                     Text(
-                        tr("When enabled, School Stuff locks at launch and after it has been away for 30 seconds. Child information is hidden from the recent-apps preview.", "Lorsqu’il est activé, School Stuff se verrouille au démarrage et après 30 secondes en arrière-plan. Les renseignements des enfants sont masqués dans l’aperçu des applis récentes."),
+                        tr("When enabled, ParentBell locks at launch and after it has been away for 30 seconds. Child information is hidden from the recent-apps preview.", "Lorsqu’il est activé, ParentBell se verrouille au démarrage et après 30 secondes en arrière-plan. Les renseignements des enfants sont masqués dans l’aperçu des applis récentes."),
                         color = Ink.copy(alpha = .66f),
                         fontSize = 12.sp
                     )
@@ -1795,7 +1795,7 @@ private fun SettingsScreen(
         }
         item {
             CollapsibleSettingsCard(
-                title = tr("About School Stuff", "À propos de School Stuff"),
+                title = tr("About ParentBell", "À propos de ParentBell"),
                 summary = tr("Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "Version ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"),
                 icon = Icons.Rounded.School,
                 accent = SchoolBlue,
@@ -1803,7 +1803,7 @@ private fun SettingsScreen(
                 onToggle = { expandedSettingsSection = if (expandedSettingsSection == "about") null else "about" }
             ) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(tr("School Stuff ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "School Stuff ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"), color = Ink, fontWeight = FontWeight.Bold)
+                        Text(tr("ParentBell ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}", "ParentBell ${BuildConfig.VERSION_NAME} · compilation ${BuildConfig.VERSION_CODE}"), color = Ink, fontWeight = FontWeight.Bold)
                         Text(tr("Compact settings, notification controls, and optional fingerprint or face app lock.", "Paramètres compacts, réglages des notifications et verrouillage facultatif par empreinte ou visage."), color = Ink.copy(alpha = .65f), fontSize = 13.sp)
                     }
             }

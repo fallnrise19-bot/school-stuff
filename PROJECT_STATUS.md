@@ -1,6 +1,6 @@
-# School Stuff project status
+# ParentBell project status
 
-Current prototype: 0.1.6-app-lock / versionCode 23
+Current prototype: 0.1.6-parentbell / versionCode 25
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 

@@ -1,16 +1,16 @@
-# School Stuff
+# ParentBell
 
-School Stuff is a parent-first Android school organizer: Today/Tomorrow reminders, multiple children, homework and forms, teacher/school details, document references, notifications, and Android/Google Calendar integration through the phone's Calendar Provider.
+ParentBell is a parent-first Android school organizer: Today/Tomorrow reminders, multiple children, homework and forms, teacher/school details, document references, notifications, and Android/Google Calendar integration through the phone's Calendar Provider.
 
 ## Current build
-- Version: 0.1.6-app-lock
-- versionCode: 23
+- Version: 0.1.6-parentbell
+- versionCode: 25
 - Package: `ca.creativepixels.schoolstuff`
 - Minimum Android: 8.0 (API 26)
 - Target/compile SDK: 35
 
 ## Debug APK from GitHub
-Every push to `main` runs `.github/workflows/build-debug-apk.yml` and uploads `SchoolStuff-debug-apk` as a GitHub Actions artifact. The workflow deliberately uses GitHub's installed Gradle 8.9 so the repository does not need to commit a Gradle wrapper JAR.
+Every push to `main` runs `.github/workflows/build-debug-apk.yml` and uploads `ParentBell-debug-apk` as a GitHub Actions artifact. The workflow deliberately uses GitHub's installed Gradle 8.9 so the repository does not need to commit a Gradle wrapper JAR.
 
 ## Included in the current restored build
 - School-themed Home dashboard with Today/Tomorrow
@@ -30,7 +30,7 @@ Every push to `main` runs `.github/workflows/build-debug-apk.yml` and uploads `S
 - Local on-device storage (SharedPreferences JSON) so there is no server/account requirement yet
 
 ## Calendar design
-School Stuff uses Android's `CalendarContract` provider. This lets it work with Google calendars already synced to the device without shipping a Google API key. Users explicitly grant calendar permissions and choose the calendars School Stuff may read. They also choose one destination calendar for School Stuff write-back.
+ParentBell uses Android's `CalendarContract` provider. This lets it work with Google calendars already synced to the device without shipping a Google API key. Users explicitly grant calendar permissions and choose the calendars ParentBell may read. They also choose one destination calendar for ParentBell write-back.
 
 ## Not in the current build yet
 - Cloud sync / family sharing

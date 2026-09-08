@@ -1,0 +1,42 @@
+name: Build ParentBell Play Update Bundle
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-play-update:
+    if: github.event.head_commit.message == 'Update ParentBell launcher icon'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 platform
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Test and build release bundle
+        run: gradle :app:testDebugUnitTest :app:bundleRelease --stacktrace
+
+      - name: Upload unsigned bundle for secure local signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParentBell-unsigned-play-bundle-build30
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14

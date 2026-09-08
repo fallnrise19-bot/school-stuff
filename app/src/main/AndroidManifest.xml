@@ -7,9 +7,9 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_school_stuff"
+        android:icon="@drawable/ic_parentbell_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_school_stuff"
+        android:roundIcon="@drawable/ic_parentbell_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.SchoolStuff">
         <activity

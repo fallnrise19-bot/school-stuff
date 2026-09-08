@@ -33,8 +33,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 29
-        versionName = "0.1.9-internal-test"
+        versionCode = 30
+        versionName = "0.1.10-parentbell-icon"
     }
 
     buildFeatures {

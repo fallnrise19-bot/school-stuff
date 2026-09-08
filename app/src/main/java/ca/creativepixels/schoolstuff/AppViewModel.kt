@@ -39,17 +39,11 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         private set
 
     init {
-        if (!store.hasSeeded()) {
-            children = SeedData.children()
-            items = SeedData.items()
-            store.saveChildren(children)
-            store.saveItems(items)
-            store.markSeeded()
-            items.forEach { ReminderScheduler.schedule(application, it) }
-        } else {
-            children = store.loadChildren()
-            items = store.loadItems()
-        }
+        // Production installs must never receive the developer's sample family data.
+        // Existing users keep everything they have already saved; brand-new installs start empty.
+        children = store.loadChildren()
+        items = store.loadItems()
+        if (!store.hasSeeded()) store.markSeeded()
         documents = store.loadDocuments()
         absences = store.loadAbsences()
         transportation = store.loadTransportation()

@@ -79,6 +79,7 @@ import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -601,6 +602,30 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Header(tr("Kids", "Enfants"), tr("Different schedules. One parent brain. ♥", "Des horaires différents. Un seul cerveau de parent. ♥"), note = tr("Same kids.\nBrighter days.", "Les mêmes enfants.\nDes journées plus simples.")) }
+        if (vm.children.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = SoftBlue),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Rounded.Groups, null, tint = SchoolBlue, modifier = Modifier.size(42.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text(tr("No children added yet", "Aucun enfant ajouté"), color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                        Text(
+                            tr("Add your first child to start organizing their school information.", "Ajoutez votre premier enfant pour commencer à organiser ses renseignements scolaires."),
+                            color = Ink.copy(alpha = .62f),
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 5.dp)
+                        )
+                    }
+                }
+            }
+        }
         items(vm.children, key = { it.id }) { child ->
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { onChild(child.id) },
@@ -845,6 +870,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var editingTransportation by remember { mutableStateOf(false) }
     var recordingAbsence by remember { mutableStateOf(false) }
     var showAllAbsences by remember { mutableStateOf(false) }
+    var deletingChild by remember { mutableStateOf(false) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -880,6 +906,9 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             Text(child.grade, color = Ink.copy(alpha = .58f))
                         }
                         IconButton(onClick = { editing = true }) { Icon(Icons.Rounded.Edit, tr("Edit", "Modifier")) }
+                        IconButton(onClick = { deletingChild = true }) {
+                            Icon(Icons.Rounded.Delete, tr("Delete ${child.name}", "Supprimer ${child.name}"), tint = SchoolRed)
+                        }
                     }
                     Spacer(Modifier.height(10.dp))
                     Text(child.teacherName.ifBlank { tr("Add teacher information", "Ajouter les renseignements de l’enseignant") }, color = Ink, fontWeight = FontWeight.SemiBold)
@@ -1156,6 +1185,34 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             onSave = { absence ->
                 vm.saveAbsence(absence)
                 recordingAbsence = false
+            }
+        )
+    }
+
+    if (deletingChild) {
+        AlertDialog(
+            onDismissRequest = { deletingChild = false },
+            title = { Text(tr("Delete ${child.name}?", "Supprimer ${child.name} ?")) },
+            text = {
+                Text(
+                    tr(
+                        "This permanently removes ${child.name} and their school items, absences, transportation information, and saved papers from ParentBell. This cannot be undone.",
+                        "Cette action supprimera définitivement ${child.name}, ses éléments scolaires, ses absences, ses renseignements de transport et ses documents enregistrés dans ParentBell. Cette action est irréversible."
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.deleteChild(child.id)
+                        deletingChild = false
+                        onBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SchoolRed)
+                ) { Text(tr("Delete child", "Supprimer l’enfant")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingChild = false }) { Text(tr("Cancel", "Annuler")) }
             }
         )
     }

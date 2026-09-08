@@ -19,6 +19,8 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         private set
     var items by mutableStateOf<List<SchoolItem>>(emptyList())
         private set
+    var absences by mutableStateOf<List<SchoolAbsence>>(emptyList())
+        private set
     var documents by mutableStateOf<List<SchoolDocument>>(emptyList())
         private set
     var transportation by mutableStateOf<List<TransportationInfo>>(emptyList())
@@ -49,6 +51,7 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
             items = store.loadItems()
         }
         documents = store.loadDocuments()
+        absences = store.loadAbsences()
         transportation = store.loadTransportation()
         parentNotes = store.getParentNotes()
         nightReminderHour = store.getNightReminderHour()
@@ -78,10 +81,12 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         children = children.filterNot { it.id == childId }
         items.filter { it.childId == childId }.forEach { ReminderScheduler.cancel(getApplication(), it.id) }
         items = items.filterNot { it.childId == childId }
+        absences = absences.filterNot { it.childId == childId }
         documents = documents.filterNot { it.childId == childId }
         transportation = transportation.filterNot { it.childId == childId }
         store.saveChildren(children)
         store.saveItems(items)
+        store.saveAbsences(absences)
         store.saveDocuments(documents)
         store.saveTransportation(transportation)
     }
@@ -107,6 +112,49 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         ReminderScheduler.cancel(getApplication(), itemId)
         items = items.filterNot { it.id == itemId }
         store.saveItems(items)
+    }
+
+    fun saveAbsence(absence: SchoolAbsence) {
+        val date = runCatching { LocalDate.parse(absence.dateIso) }.getOrNull() ?: return
+        val childId = absence.childId.trim()
+        val reason = absence.reason.trim()
+        if (childId.isBlank() || reason.isBlank() || child(childId) == null) return
+
+        val existing = absences.firstOrNull {
+            it.childId == childId && it.dateIso == date.toString()
+        }
+        val normalized = absence.copy(
+            id = existing?.id ?: absence.id,
+            childId = childId,
+            dateIso = date.toString(),
+            reason = reason
+        )
+        absences = absences.filterNot { it.id == normalized.id } + normalized
+        store.saveAbsences(absences)
+    }
+
+    fun deleteAbsence(absenceId: String) {
+        absences = absences.filterNot { it.id == absenceId }
+        store.saveAbsences(absences)
+    }
+
+    fun absencesFor(date: LocalDate): List<SchoolAbsence> = absences
+        .filter { it.dateIso == date.toString() }
+        .sortedBy { childName(it.childId) }
+
+    fun absencesInSchoolYear(
+        childId: String,
+        referenceDate: LocalDate = LocalDate.now()
+    ): List<SchoolAbsence> {
+        val start = schoolYearStartFor(referenceDate)
+        val end = schoolYearEndFor(referenceDate)
+        return absences
+            .filter { it.childId == childId }
+            .filter { absence ->
+                val date = runCatching { LocalDate.parse(absence.dateIso) }.getOrNull()
+                date != null && !date.isBefore(start) && !date.isAfter(end)
+            }
+            .sortedByDescending { it.dateIso }
     }
 
     fun addDocument(document: SchoolDocument) {

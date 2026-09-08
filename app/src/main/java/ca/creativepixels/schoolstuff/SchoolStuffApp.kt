@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.Backpack
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -72,6 +73,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Sick
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -128,10 +130,13 @@ import ca.creativepixels.schoolstuff.data.DeviceCalendar
 import ca.creativepixels.schoolstuff.data.DocumentType
 import ca.creativepixels.schoolstuff.data.Reminder
 import ca.creativepixels.schoolstuff.data.Repeat
+import ca.creativepixels.schoolstuff.data.SchoolAbsence
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
 import ca.creativepixels.schoolstuff.data.TransportationInfo
 import ca.creativepixels.schoolstuff.data.TransportationMode
+import ca.creativepixels.schoolstuff.data.schoolYearEndFor
+import ca.creativepixels.schoolstuff.data.schoolYearStartFor
 import ca.creativepixels.schoolstuff.notifications.ReminderNotifications
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -140,9 +145,11 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 private enum class MainTab(val english: String, val french: String, val icon: ImageVector) {
     HOME("Home", "Accueil", Icons.Rounded.Home),
@@ -610,6 +617,23 @@ private fun KidsScreen(vm: SchoolStuffViewModel, onChild: (String) -> Unit) {
                         }
                         Icon(Icons.Rounded.School, null, tint = childColor(child.colorKey))
                     }
+                    val absenceCount = vm.absencesInSchoolYear(child.id).size
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Sick, null, tint = SchoolRed, modifier = Modifier.size(19.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            tr(
+                                "$absenceCount day${if (absenceCount == 1) "" else "s"} absent this school year",
+                                "$absenceCount jour${if (absenceCount == 1) "" else "s"} d’absence cette année scolaire"
+                            ),
+                            color = Ink.copy(alpha = .62f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     val routines = vm.items.filter { it.childId == child.id && it.repeat == Repeat.WEEKLY }.take(3)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -689,6 +713,128 @@ private fun WorkWeekStrip(weekdays: List<LocalDate>, today: LocalDate) {
 }
 
 @Composable
+private fun AbsenceRow(
+    absence: SchoolAbsence,
+    childName: String = "",
+    onDelete: (() -> Unit)? = null
+) {
+    var confirmingDelete by remember(absence.id) { mutableStateOf(false) }
+    val date = runCatching { LocalDate.parse(absence.dateIso) }.getOrNull()
+    val dateLabel = date?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)) ?: absence.dateIso
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(color = SoftPink, shape = CircleShape) {
+            Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Sick, null, tint = SchoolRed, modifier = Modifier.size(21.dp))
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (childName.isBlank()) dateLabel else "$dateLabel • $childName",
+                color = Ink,
+                fontWeight = FontWeight.Bold
+            )
+            Text(absence.reason, color = Ink.copy(alpha = .62f), fontSize = 13.sp)
+        }
+        if (onDelete != null) {
+            IconButton(onClick = { confirmingDelete = true }) {
+                Icon(Icons.Rounded.Delete, tr("Remove absence", "Supprimer l’absence"), tint = SchoolRed.copy(alpha = .78f))
+            }
+        }
+    }
+
+    if (confirmingDelete && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text(tr("Remove this absence?", "Supprimer cette absence ?")) },
+            text = { Text(tr("The day will no longer count in the school-year total.", "Cette journée ne comptera plus dans le total de l’année scolaire.")) },
+            confirmButton = {
+                Button(onClick = {
+                    confirmingDelete = false
+                    onDelete()
+                }) { Text(tr("Remove", "Supprimer")) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(tr("Cancel", "Annuler")) } }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AbsenceDialog(
+    child: ChildProfile,
+    onDismiss: () -> Unit,
+    onSave: (SchoolAbsence) -> Unit
+) {
+    var date by remember { mutableStateOf(LocalDate.now()) }
+    var reason by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateIsValid = !date.isAfter(LocalDate.now())
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Record ${child.name}’s absence", "Ajouter l’absence de ${child.name}")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    tr("Each date counts once, so saving the same date again updates its reason.", "Chaque date compte une seule fois. Enregistrer de nouveau la même date met à jour la raison."),
+                    color = Ink.copy(alpha = .62f),
+                    fontSize = 12.sp
+                )
+                OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.CalendarMonth, null)
+                    Spacer(Modifier.width(7.dp))
+                    Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)))
+                }
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(tr("Reason", "Raison")) },
+                    placeholder = { Text(tr("Sick, appointment, family day…", "Maladie, rendez-vous, journée familiale…")) },
+                    minLines = 2,
+                    maxLines = 4
+                )
+                if (!dateIsValid) {
+                    Text(tr("An absence cannot be recorded in the future.", "Une absence ne peut pas être enregistrée à une date future."), color = SchoolRed, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(SchoolAbsence(childId = child.id, dateIso = date.toString(), reason = reason)) },
+                enabled = reason.isNotBlank() && dateIsValid
+            ) { Text(tr("Save absence", "Enregistrer")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
+    )
+
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        date = Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text(tr("Choose", "Choisir")) }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(tr("Cancel", "Annuler")) } }
+        ) {
+            androidx.compose.material3.DatePicker(state = datePickerState, showModeToggle = true)
+        }
+    }
+}
+
+@Composable
 private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () -> Unit, onAddThing: () -> Unit) {
     val child = vm.child(childId) ?: return
     val context = LocalContext.current
@@ -697,6 +843,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var choosingDocumentType by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var editingTransportation by remember { mutableStateOf(false) }
+    var recordingAbsence by remember { mutableStateOf(false) }
+    var showAllAbsences by remember { mutableStateOf(false) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -773,6 +921,78 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             HorizontalDivider(color = Ink.copy(alpha = .07f))
                         }
                         TextButton(onClick = onAddThing) { Icon(Icons.Rounded.Add, null); Text(tr("Add school thing", "Ajouter un élément scolaire")) }
+                    }
+                }
+            }
+        }
+        item {
+            val today = LocalDate.now()
+            val schoolYearAbsences = vm.absencesInSchoolYear(childId, today)
+            val yearStart = schoolYearStartFor(today)
+            val yearEnd = schoolYearEndFor(today)
+            val visibleAbsences = if (showAllAbsences) schoolYearAbsences else schoolYearAbsences.take(3)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section(tr("Absence at a Glance", "Aperçu des absences"), SchoolPink) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(color = SoftPink, shape = RoundedCornerShape(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.Sick, null, tint = SchoolRed, modifier = Modifier.size(30.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        tr(
+                                            "${schoolYearAbsences.size} day${if (schoolYearAbsences.size == 1) "" else "s"} missed",
+                                            "${schoolYearAbsences.size} jour${if (schoolYearAbsences.size == 1) "" else "s"} d’absence"
+                                        ),
+                                        color = Ink,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 20.sp
+                                    )
+                                    Text(
+                                        tr(
+                                            "School year ${yearStart.year}–${yearEnd.year}",
+                                            "Année scolaire ${yearStart.year}–${yearEnd.year}"
+                                        ),
+                                        color = Ink.copy(alpha = .6f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(onClick = { recordingAbsence = true }) {
+                            Icon(Icons.Rounded.Add, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(tr("Record an absence", "Ajouter une absence"))
+                        }
+
+                        if (schoolYearAbsences.isEmpty()) {
+                            Text(
+                                tr("No absences recorded this school year.", "Aucune absence enregistrée cette année scolaire."),
+                                color = Ink.copy(alpha = .6f),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        } else {
+                            visibleAbsences.forEach { absence ->
+                                AbsenceRow(
+                                    absence = absence,
+                                    onDelete = { vm.deleteAbsence(absence.id) }
+                                )
+                                HorizontalDivider(color = Ink.copy(alpha = .07f))
+                            }
+                            if (schoolYearAbsences.size > 3) {
+                                TextButton(onClick = { showAllAbsences = !showAllAbsences }) {
+                                    Text(
+                                        if (showAllAbsences) tr("Show fewer", "Afficher moins")
+                                        else tr("Show all ${schoolYearAbsences.size}", "Afficher les ${schoolYearAbsences.size}")
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -925,6 +1145,17 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             onSave = { info ->
                 vm.saveTransportation(info)
                 editingTransportation = false
+            }
+        )
+    }
+
+    if (recordingAbsence) {
+        AbsenceDialog(
+            child = child,
+            onDismiss = { recordingAbsence = false },
+            onSave = { absence ->
+                vm.saveAbsence(absence)
+                recordingAbsence = false
             }
         )
     }
@@ -1338,27 +1569,200 @@ private fun AddThingScreen(vm: SchoolStuffViewModel, onBack: () -> Unit) {
 }
 
 @Composable
+private fun MonthDayCell(
+    modifier: Modifier = Modifier,
+    date: LocalDate?,
+    selectedDate: LocalDate,
+    today: LocalDate,
+    hasSchoolItems: Boolean,
+    hasAbsence: Boolean,
+    onSelect: (LocalDate) -> Unit
+) {
+    val isSelected = date == selectedDate
+    val isToday = date == today
+    val background = when {
+        isSelected -> SchoolBlue
+        isToday -> SoftYellow
+        else -> Color.Transparent
+    }
+    Box(
+        modifier = modifier
+            .height(55.dp)
+            .padding(2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(background)
+            .then(if (date == null) Modifier else Modifier.clickable { onSelect(date) }),
+        contentAlignment = Alignment.Center
+    ) {
+        if (date != null) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    date.dayOfMonth.toString(),
+                    color = if (isSelected) Color.White else Ink,
+                    fontWeight = if (isSelected || isToday) FontWeight.Black else FontWeight.Medium,
+                    fontSize = 15.sp
+                )
+                Row(
+                    modifier = Modifier.height(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (hasSchoolItems) {
+                        Box(
+                            Modifier.size(6.dp).clip(CircleShape).background(if (isSelected) Color.White else SchoolBlue)
+                        )
+                    }
+                    if (hasAbsence) {
+                        Box(
+                            Modifier.size(6.dp).clip(CircleShape).background(if (isSelected) SoftPink else SchoolPink)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CalendarScreen(vm: SchoolStuffViewModel) {
     val today = LocalDate.now()
+    var visibleMonth by remember { mutableStateOf(YearMonth.from(today)) }
+    var selectedDate by remember { mutableStateOf(today) }
+    val firstDate = visibleMonth.atDay(1)
+    val leadingBlanks = firstDate.dayOfWeek.value - 1
+    val neededCells = leadingBlanks + visibleMonth.lengthOfMonth()
+    val cellCount = ((neededCells + 6) / 7) * 7
+    val monthDates = (0 until cellCount).map { index ->
+        val day = index - leadingBlanks + 1
+        if (day in 1..visibleMonth.lengthOfMonth()) visibleMonth.atDay(day) else null
+    }
+    val locale = if (Locale.getDefault().language == AppLanguage.FRENCH) Locale.CANADA_FRENCH else Locale.CANADA
+    val rawMonthTitle = firstDate.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale))
+    val monthTitle = rawMonthTitle.replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+    val selectedItems = vm.itemsFor(selectedDate)
+    val selectedAbsences = vm.absencesFor(selectedDate)
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item { Header(tr("Calendar", "Calendrier"), tr("The week without the fridge blindness. ♥", "La semaine sans l’angle mort du frigo. ♥"), note = tr("This week", "Cette semaine")) }
-        items((0L..13L).toList()) { offset ->
-            val date = today.plusDays(offset)
-            val dayItems = vm.itemsFor(date)
-            if (dayItems.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (offset == 0L) SoftBlue else Color.White),
-                    shape = RoundedCornerShape(18.dp)
+        item {
+            Header(
+                tr("Calendar", "Calendrier"),
+                tr("Your whole school month, no fridge archaeology required. ♥", "Tout votre mois scolaire, sans fouilles archéologiques sur le frigo. ♥"),
+                note = tr("Month view", "Vue mensuelle")
+            )
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            visibleMonth = visibleMonth.minusMonths(1)
+                            selectedDate = visibleMonth.atDay(1)
+                        }) {
+                            Icon(Icons.Rounded.ArrowBack, tr("Previous month", "Mois précédent"), tint = Ink)
+                        }
+                        Text(
+                            monthTitle,
+                            modifier = Modifier.weight(1f),
+                            color = Ink,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 21.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        IconButton(onClick = {
+                            visibleMonth = visibleMonth.plusMonths(1)
+                            selectedDate = visibleMonth.atDay(1)
+                        }) {
+                            Icon(Icons.Rounded.ArrowForward, tr("Next month", "Mois suivant"), tint = Ink)
+                        }
+                    }
+
+                    Row(Modifier.fillMaxWidth()) {
+                        listOf(
+                            tr("Mon", "Lun"), tr("Tue", "Mar"), tr("Wed", "Mer"), tr("Thu", "Jeu"),
+                            tr("Fri", "Ven"), tr("Sat", "Sam"), tr("Sun", "Dim")
+                        ).forEach { label ->
+                            Text(
+                                label,
+                                modifier = Modifier.weight(1f),
+                                color = Ink.copy(alpha = .55f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+
+                    monthDates.chunked(7).forEach { week ->
+                        Row(Modifier.fillMaxWidth()) {
+                            week.forEach { date ->
+                                MonthDayCell(
+                                    modifier = Modifier.weight(1f),
+                                    date = date,
+                                    selectedDate = selectedDate,
+                                    today = today,
+                                    hasSchoolItems = date?.let { vm.itemsFor(it).isNotEmpty() } == true,
+                                    hasAbsence = date?.let { vm.absencesFor(it).isNotEmpty() } == true,
+                                    onSelect = { selectedDate = it }
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(SchoolBlue))
+                        Spacer(Modifier.width(5.dp))
+                        Text(tr("School item", "Élément scolaire"), color = Ink.copy(alpha = .58f), fontSize = 11.sp)
+                        Spacer(Modifier.width(14.dp))
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(SchoolPink))
+                        Spacer(Modifier.width(5.dp))
+                        Text(tr("Absence", "Absence"), color = Ink.copy(alpha = .58f), fontSize = 11.sp)
+                    }
+
+                    if (visibleMonth != YearMonth.from(today)) {
+                        TextButton(
+                            onClick = {
+                                visibleMonth = YearMonth.from(today)
+                                selectedDate = today
+                            },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) { Text(tr("Back to today", "Revenir à aujourd’hui")) }
+                    }
+                }
+            }
+        }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section(
+                    selectedDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)),
+                    if (selectedAbsences.isNotEmpty()) SchoolPink else SchoolBlue
                 ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)), color = Ink, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                        dayItems.forEach { item ->
+                    Column {
+                        if (selectedItems.isEmpty() && selectedAbsences.isEmpty()) {
+                            Text(
+                                tr("Nothing saved for this day.", "Rien n’est enregistré pour cette journée."),
+                                color = Ink.copy(alpha = .6f),
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            )
+                        }
+                        selectedItems.forEach { item ->
                             SchoolRow(vm, item, onDelete = { vm.deleteItem(item.id) })
+                            HorizontalDivider(color = Ink.copy(alpha = .07f))
+                        }
+                        selectedAbsences.forEach { absence ->
+                            AbsenceRow(absence = absence, childName = vm.childName(absence.childId))
                         }
                     }
                 }

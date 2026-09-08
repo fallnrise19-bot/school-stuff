@@ -25,6 +25,21 @@ class LocalStore(context: Context) {
     fun loadItems(): List<SchoolItem> = readList("items")
     fun saveItems(value: List<SchoolItem>) = writeList("items", value)
 
+    fun loadAbsences(): List<SchoolAbsence> =
+        readList<SchoolAbsence?>("absences")
+            .filterNotNull()
+            .map { absence ->
+                SchoolAbsence(
+                    id = absence.id.orEmpty().ifBlank { java.util.UUID.randomUUID().toString() },
+                    childId = absence.childId.orEmpty(),
+                    dateIso = absence.dateIso.orEmpty(),
+                    reason = absence.reason.orEmpty()
+                )
+            }
+            .filter { it.childId.isNotBlank() && it.dateIso.isNotBlank() && it.reason.isNotBlank() }
+
+    fun saveAbsences(value: List<SchoolAbsence>) = writeList("absences", value)
+
     fun loadDocuments(): List<SchoolDocument> = readList("documents")
     fun saveDocuments(value: List<SchoolDocument>) = writeList("documents", value)
 

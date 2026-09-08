@@ -34,6 +34,13 @@ data class SchoolItem(
     val externalEventId: String? = null
 )
 
+data class SchoolAbsence(
+    val id: String = UUID.randomUUID().toString(),
+    val childId: String,
+    val dateIso: String = LocalDate.now().toString(),
+    val reason: String
+)
+
 data class SchoolDocument(
     val id: String = UUID.randomUUID().toString(),
     val childId: String,
@@ -115,3 +122,10 @@ object TransportationMode {
     const val PRIVATE = "Private transportation"
     val all = listOf(BUS, PRIVATE)
 }
+
+fun schoolYearStartFor(date: LocalDate): LocalDate =
+    if (date.monthValue >= 9) LocalDate.of(date.year, 9, 1)
+    else LocalDate.of(date.year - 1, 9, 1)
+
+fun schoolYearEndFor(date: LocalDate): LocalDate =
+    schoolYearStartFor(date).plusYears(1).minusDays(1)

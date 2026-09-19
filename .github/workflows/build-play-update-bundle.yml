@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-play-update:
-    if: github.event.head_commit.message == 'Repair Android build workflow'
+    if: github.event.head_commit.message == 'Use hosted Android SDK tools'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -20,7 +20,10 @@ jobs:
           java-version: '17'
 
       - name: Install Android 36 platform
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          ANDROID_SDK_MANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          test -x "$ANDROID_SDK_MANAGER"
+          "$ANDROID_SDK_MANAGER" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

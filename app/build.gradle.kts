@@ -33,8 +33,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "0.1.12-empty-start-delete-kids"
+        versionCode = 33
+        versionName = "0.1.13-edit-child-name"
     }
 
     buildFeatures {

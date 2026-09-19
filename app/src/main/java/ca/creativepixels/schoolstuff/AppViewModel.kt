@@ -67,7 +67,11 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun updateChild(profile: ChildProfile) {
-        children = children.map { if (it.id == profile.id) profile else it }
+        val trimmedName = profile.name.trim()
+        if (trimmedName.isBlank()) return
+        children = children.map {
+            if (it.id == profile.id) profile.copy(name = trimmedName) else it
+        }
         store.saveChildren(children)
     }
 

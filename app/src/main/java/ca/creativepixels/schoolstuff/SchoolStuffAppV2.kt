@@ -599,7 +599,8 @@ private fun documentIconV2(type: String): ImageVector = when (type) {
 
 @Composable
 private fun EditChildDialogV2(child: ChildProfile, onDismiss: () -> Unit, onSave: (ChildProfile) -> Unit) {
-    var grade by remember { mutableStateOf(child.grade) }
+    var name by remember(child.id) { mutableStateOf(child.name) }
+    var grade by remember(child.id) { mutableStateOf(child.grade) }
     var teacher by remember { mutableStateOf(child.teacherName) }
     var email by remember { mutableStateOf(child.teacherEmail) }
     var phone by remember { mutableStateOf(child.classroomPhone) }
@@ -610,9 +611,19 @@ private fun EditChildDialogV2(child: ChildProfile, onDismiss: () -> Unit, onSave
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${child.name}'s school info") },
+        title = { Text("Edit child") },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.heightIn(max = 470.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Child's name") },
+                        singleLine = true,
+                        isError = name.isBlank(),
+                        supportingText = { if (name.isBlank()) Text("A name is required.") }
+                    )
+                }
                 item { OutlinedTextField(grade, { grade = it }, label = { Text("Grade") }, singleLine = true) }
                 item { OutlinedTextField(teacher, { teacher = it }, label = { Text("Teacher") }, singleLine = true) }
                 item { OutlinedTextField(email, { email = it }, label = { Text("Teacher email") }, singleLine = true) }
@@ -624,9 +635,24 @@ private fun EditChildDialogV2(child: ChildProfile, onDismiss: () -> Unit, onSave
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onSave(child.copy(grade = grade, teacherName = teacher, teacherEmail = email, classroomPhone = phone, room = room, schoolName = school, schoolPhone = schoolPhone, specialNotes = notes))
-            }) { Text("Save") }
+            Button(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(
+                        child.copy(
+                            name = name.trim(),
+                            grade = grade,
+                            teacherName = teacher,
+                            teacherEmail = email,
+                            classroomPhone = phone,
+                            room = room,
+                            schoolName = school,
+                            schoolPhone = schoolPhone,
+                            specialNotes = notes
+                        )
+                    )
+                }
+            ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

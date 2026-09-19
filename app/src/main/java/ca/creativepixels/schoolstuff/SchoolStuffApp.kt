@@ -1358,7 +1358,8 @@ private fun ReminderTimeRow(label: String, hour: Int, minute: Int, onClick: () -
 
 @Composable
 private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: (ChildProfile) -> Unit) {
-    var grade by remember { mutableStateOf(child.grade) }
+    var name by remember(child.id) { mutableStateOf(child.name) }
+    var grade by remember(child.id) { mutableStateOf(child.grade) }
     var teacher by remember { mutableStateOf(child.teacherName) }
     var email by remember { mutableStateOf(child.teacherEmail) }
     var phone by remember { mutableStateOf(child.classroomPhone) }
@@ -1369,9 +1370,21 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("${child.name}'s school info", "Renseignements scolaires de ${child.name}")) },
+        title = { Text(tr("Edit child", "Modifier l’enfant")) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(tr("Child's name", "Nom de l’enfant")) },
+                        singleLine = true,
+                        isError = name.isBlank(),
+                        supportingText = {
+                            if (name.isBlank()) Text(tr("A name is required.", "Le nom est obligatoire."))
+                        }
+                    )
+                }
                 item { OutlinedTextField(grade, { grade = it }, label = { Text(tr("Grade", "Niveau")) }, singleLine = true) }
                 item { OutlinedTextField(teacher, { teacher = it }, label = { Text(tr("Teacher", "Enseignant(e)")) }, singleLine = true) }
                 item { OutlinedTextField(email, { email = it }, label = { Text(tr("Teacher email", "Courriel de l’enseignant")) }, singleLine = true) }
@@ -1383,9 +1396,24 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onSave(child.copy(grade = grade, teacherName = teacher, teacherEmail = email, classroomPhone = phone, room = room, schoolName = school, schoolPhone = schoolPhone, specialNotes = notes))
-            }) { Text(tr("Save", "Enregistrer")) }
+            Button(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(
+                        child.copy(
+                            name = name.trim(),
+                            grade = grade,
+                            teacherName = teacher,
+                            teacherEmail = email,
+                            classroomPhone = phone,
+                            room = room,
+                            schoolName = school,
+                            schoolPhone = schoolPhone,
+                            specialNotes = notes
+                        )
+                    )
+                }
+            ) { Text(tr("Save", "Enregistrer")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
     )

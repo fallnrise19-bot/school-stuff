@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -134,6 +135,7 @@ import ca.creativepixels.schoolstuff.data.Repeat
 import ca.creativepixels.schoolstuff.data.SchoolAbsence
 import ca.creativepixels.schoolstuff.data.SchoolDocument
 import ca.creativepixels.schoolstuff.data.SchoolItem
+import ca.creativepixels.schoolstuff.data.TeacherContact
 import ca.creativepixels.schoolstuff.data.TransportationInfo
 import ca.creativepixels.schoolstuff.data.TransportationMode
 import ca.creativepixels.schoolstuff.data.schoolYearEndFor
@@ -304,8 +306,14 @@ private fun SchoolRow(
     trailing: @Composable (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
+    var showingDetails by remember(item.id) { mutableStateOf(false) }
+    var editingItem by remember(item.id) { mutableStateOf(false) }
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showingDetails = true }
+            .padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ChildBadge(vm.child(item.childId), 38)
@@ -325,11 +333,50 @@ private fun SchoolRow(
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val who = if (item.childId.isBlank()) tr("Family", "Famille") else vm.childName(item.childId)
             Text("$who • ${categoryLabel(item.category)}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
+            if (item.notes.isNotBlank() || item.needsItemFromHome) {
+                Text(
+                    tr("Notes added · tap to view", "Notes ajoutées · touchez pour voir"),
+                    color = SchoolBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
         trailing?.invoke()
+        IconButton(onClick = { editingItem = true }, modifier = Modifier.size(42.dp)) {
+            Icon(
+                Icons.Rounded.Edit,
+                contentDescription = tr("Edit ${item.title}", "Modifier ${item.title}"),
+                tint = SchoolBlue
+            )
+        }
         if (onDelete != null) {
             DeleteSchoolItemButton(item = item, onDelete = onDelete)
         }
+    }
+
+    if (showingDetails) {
+        SchoolItemDetailsDialog(
+            vm = vm,
+            item = item,
+            onDismiss = { showingDetails = false },
+            onEdit = {
+                showingDetails = false
+                editingItem = true
+            }
+        )
+    }
+
+    if (editingItem) {
+        EditSchoolItemDialog(
+            vm = vm,
+            item = item,
+            onDismiss = { editingItem = false },
+            onSave = { updated ->
+                vm.updateItem(updated)
+                editingItem = false
+            }
+        )
     }
 }
 
@@ -337,7 +384,7 @@ private fun SchoolRow(
 private fun DeleteSchoolItemButton(item: SchoolItem, onDelete: () -> Unit) {
     var confirmingDelete by remember(item.id) { mutableStateOf(false) }
 
-    IconButton(onClick = { confirmingDelete = true }) {
+    IconButton(onClick = { confirmingDelete = true }, modifier = Modifier.size(42.dp)) {
         Icon(
             Icons.Rounded.Delete,
             contentDescription = tr("Remove ${item.title}", "Supprimer ${item.title}"),
@@ -368,6 +415,308 @@ private fun DeleteSchoolItemButton(item: SchoolItem, onDelete: () -> Unit) {
                 TextButton(onClick = { confirmingDelete = false }) { Text(tr("Cancel", "Annuler")) }
             }
         )
+    }
+}
+
+@Composable
+private fun SchoolItemDetailsDialog(
+    vm: SchoolStuffViewModel,
+    item: SchoolItem,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit
+) {
+    val date = runCatching { LocalDate.parse(item.dateIso) }.getOrNull()
+    val who = if (item.childId.isBlank()) tr("Family", "Famille") else vm.childName(item.childId)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(item.title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ItemDetailLine(tr("For", "Pour"), who)
+                ItemDetailLine(tr("Category", "Catégorie"), categoryLabel(item.category))
+                ItemDetailLine(
+                    tr("Date", "Date"),
+                    date?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)) ?: item.dateIso
+                )
+                ItemDetailLine(tr("Repeat", "Répétition"), repeatLabel(item.repeat))
+                ItemDetailLine(tr("Reminder", "Rappel"), reminderLabel(item.reminder))
+                if (item.needsItemFromHome) {
+                    Surface(color = SoftYellow, shape = RoundedCornerShape(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Backpack, null, tint = SchoolBlue)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                tr("Something is needed from home", "Un objet doit être apporté de la maison"),
+                                color = Ink,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    color = if (item.notes.isBlank()) Ink.copy(alpha = .04f) else SoftBlue,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(tr("Notes", "Notes"), color = Ink, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            item.notes.ifBlank { tr("No notes were added.", "Aucune note n’a été ajoutée.") },
+                            color = Ink.copy(alpha = .75f)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onEdit) {
+                Icon(Icons.Rounded.Edit, null)
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Edit", "Modifier"))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Close", "Fermer")) } }
+    )
+}
+
+@Composable
+private fun ItemDetailLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(label, color = Ink.copy(alpha = .55f), fontSize = 13.sp, modifier = Modifier.width(82.dp))
+        Text(value, color = Ink, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditSchoolItemDialog(
+    vm: SchoolStuffViewModel,
+    item: SchoolItem,
+    onDismiss: () -> Unit,
+    onSave: (SchoolItem) -> Unit
+) {
+    val customCategoryOption = "__CUSTOM__"
+    val initialBuiltInCategory = item.category in Category.all
+    var childId by remember(item.id) { mutableStateOf(item.childId) }
+    var title by remember(item.id) { mutableStateOf(item.title) }
+    var category by remember(item.id) { mutableStateOf(if (initialBuiltInCategory) item.category else customCategoryOption) }
+    var customCategory by remember(item.id) { mutableStateOf(if (initialBuiltInCategory) "" else item.category) }
+    var selectedEmoji by remember(item.id) { mutableStateOf(item.emoji.orEmpty()) }
+    var date by remember(item.id) { mutableStateOf(runCatching { LocalDate.parse(item.dateIso) }.getOrElse { LocalDate.now() }) }
+    var repeat by remember(item.id) { mutableStateOf(item.repeat) }
+    var reminder by remember(item.id) { mutableStateOf(item.reminder) }
+    var notes by remember(item.id) { mutableStateOf(item.notes) }
+    var needsHome by remember(item.id) { mutableStateOf(item.needsItemFromHome) }
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    val emojiChoices = listOf(
+        "🎒", "📚", "✏️", "📝", "📄", "🍕", "🥪", "🍎", "🥛", "🧁",
+        "⚽", "🏀", "🏃", "👟", "🏊", "🎨", "🎭", "🎵", "📷", "⭐",
+        "🚌", "🏫", "🔬", "💻", "🧪", "👕", "🎉", "📌", "⏰", "❤️"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Edit school thing", "Modifier l’élément scolaire")) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                item {
+                    Text(tr("Who is this for?", "Pour qui ?"), color = Ink, fontWeight = FontWeight.Bold)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = childId.isBlank(), onClick = { childId = "" }, label = { Text(tr("Family", "Famille")) })
+                        vm.children.forEach { child ->
+                            FilterChip(selected = childId == child.id, onClick = { childId = child.id }, label = { Text(child.name) })
+                        }
+                    }
+                }
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(tr("School thing", "Élément scolaire")) },
+                        singleLine = true
+                    )
+                }
+                item {
+                    ExposedDropdownMenuBox(
+                        expanded = categoryMenuExpanded,
+                        onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = if (category == customCategoryOption) tr("Custom…", "Personnalisée…") else categoryLabel(category),
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            label = { Text(tr("Category", "Catégorie")) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded) },
+                            singleLine = true
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoryMenuExpanded,
+                            onDismissRequest = { categoryMenuExpanded = false }
+                        ) {
+                            Category.all.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(categoryLabel(option)) },
+                                    onClick = {
+                                        category = option
+                                        categoryMenuExpanded = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text(tr("Custom…", "Personnalisée…")) },
+                                onClick = {
+                                    category = customCategoryOption
+                                    categoryMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                if (category == customCategoryOption) {
+                    item {
+                        OutlinedTextField(
+                            value = customCategory,
+                            onValueChange = { customCategory = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(tr("Custom category", "Catégorie personnalisée")) },
+                            singleLine = true
+                        )
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { showEmojiPicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (selectedEmoji.isBlank()) "🙂" else selectedEmoji, fontSize = 23.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(tr("Choose or change emoji", "Choisir ou modifier l’émoji"))
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Rounded.CalendarMonth, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)))
+                    }
+                }
+                item {
+                    Text(tr("Repeat", "Répétition"), color = Ink, fontWeight = FontWeight.Bold)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Repeat.all.forEach { option ->
+                            FilterChip(selected = repeat == option, onClick = { repeat = option }, label = { Text(repeatLabel(option)) })
+                        }
+                    }
+                }
+                item {
+                    Text(tr("Reminder", "Rappel"), color = Ink, fontWeight = FontWeight.Bold)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Reminder.all.forEach { option ->
+                            FilterChip(selected = reminder == option, onClick = { reminder = option }, label = { Text(reminderLabel(option)) })
+                        }
+                    }
+                }
+                item {
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(tr("Notes or things to bring", "Notes ou objets à apporter")) },
+                        minLines = 3,
+                        maxLines = 6
+                    )
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = needsHome, onCheckedChange = { needsHome = it })
+                        Text(tr("Needs item from home", "Objet requis de la maison"), color = Ink)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = title.isNotBlank() && (category != customCategoryOption || customCategory.isNotBlank()),
+                onClick = {
+                    val finalCategory = if (category == customCategoryOption) customCategory.trim() else category
+                    onSave(
+                        item.copy(
+                            childId = childId,
+                            title = title.trim(),
+                            category = finalCategory,
+                            emoji = selectedEmoji.takeIf { it.isNotBlank() },
+                            dateIso = date.toString(),
+                            repeat = repeat,
+                            reminder = reminder,
+                            notes = notes.trim(),
+                            needsItemFromHome = needsHome
+                        )
+                    )
+                }
+            ) { Text(tr("Save", "Enregistrer")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
+    )
+
+    if (showEmojiPicker) {
+        AlertDialog(
+            onDismissRequest = { showEmojiPicker = false },
+            title = { Text(tr("Choose an emoji", "Choisir un émoji")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    emojiChoices.chunked(5).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            row.forEach { emoji ->
+                                TextButton(
+                                    onClick = {
+                                        selectedEmoji = emoji
+                                        showEmojiPicker = false
+                                    },
+                                    modifier = Modifier.size(46.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) { Text(emoji, fontSize = 25.sp) }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showEmojiPicker = false }) { Text(tr("Close", "Fermer")) } },
+            dismissButton = {
+                TextButton(onClick = {
+                    selectedEmoji = ""
+                    showEmojiPicker = false
+                }) { Text(tr("No emoji", "Aucun émoji")) }
+            }
+        )
+    }
+
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        date = Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text(tr("Choose", "Choisir")) }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(tr("Cancel", "Annuler")) } }
+        ) {
+            androidx.compose.material3.DatePicker(state = datePickerState, showModeToggle = true)
+        }
     }
 }
 
@@ -862,6 +1211,7 @@ private fun AbsenceDialog(
 @Composable
 private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () -> Unit, onAddThing: () -> Unit) {
     val child = vm.child(childId) ?: return
+    val primaryTeacher = vm.teachersFor(childId).firstOrNull()
     val context = LocalContext.current
     var selectedDocType by remember { mutableStateOf(DocumentType.FORM) }
     var uploadDocType by remember { mutableStateOf(DocumentType.FORM) }
@@ -871,6 +1221,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var recordingAbsence by remember { mutableStateOf(false) }
     var showAllAbsences by remember { mutableStateOf(false) }
     var deletingChild by remember { mutableStateOf(false) }
+    var showTeacherDialog by remember { mutableStateOf(false) }
+    var teacherBeingEdited by remember { mutableStateOf<TeacherContact?>(null) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -911,8 +1263,18 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text(child.teacherName.ifBlank { tr("Add teacher information", "Ajouter les renseignements de l’enseignant") }, color = Ink, fontWeight = FontWeight.SemiBold)
-                    if (child.room.isNotBlank()) Text("${tr("Room", "Salle")} ${child.room}", color = Ink.copy(alpha = .6f))
+                    Text(
+                        primaryTeacher?.name ?: tr("Add teacher information", "Ajouter les renseignements de l’enseignant"),
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    primaryTeacher?.let { teacher ->
+                        val teacherDetails = listOfNotNull(
+                            teacher.subject.takeIf { it.isNotBlank() },
+                            teacher.room.takeIf { it.isNotBlank() }?.let { "${tr("Room", "Salle")} $it" }
+                        ).joinToString(" • ")
+                        if (teacherDetails.isNotBlank()) Text(teacherDetails, color = Ink.copy(alpha = .6f))
+                    }
                     if (child.schoolName.isNotBlank()) Text(child.schoolName, color = Ink.copy(alpha = .6f))
                     Spacer(Modifier.height(10.dp))
                     MockupMiniStrip()
@@ -1027,15 +1389,49 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             }
         }
         item {
+            val childTeachers = vm.teachersFor(childId)
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Section(tr("Teacher & School", "Enseignant et école"), SchoolBlue) {
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        InfoLine(Icons.Rounded.School, tr("Teacher", "Enseignant(e)"), child.teacherName.ifBlank { tr("Not added", "Non ajouté") })
-                        InfoLine(Icons.Rounded.Email, tr("Email", "Courriel"), child.teacherEmail.ifBlank { tr("Not added", "Non ajouté") })
-                        InfoLine(Icons.Rounded.Call, tr("Classroom phone", "Téléphone de la classe"), child.classroomPhone.ifBlank { tr("Not added", "Non ajouté") })
                         InfoLine(Icons.Rounded.Home, tr("School", "École"), child.schoolName.ifBlank { tr("Not added", "Non ajouté") })
                         InfoLine(Icons.Rounded.Call, tr("School phone", "Téléphone de l’école"), child.schoolPhone.ifBlank { tr("Not added", "Non ajouté") })
                         if (child.specialNotes.isNotBlank()) Text("${tr("Note", "Note")} : ${child.specialNotes}", color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                        HorizontalDivider(color = Ink.copy(alpha = .08f), modifier = Modifier.padding(vertical = 3.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                tr("Teachers", "Enseignants"),
+                                color = Ink,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 17.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = {
+                                    teacherBeingEdited = null
+                                    showTeacherDialog = true
+                                }
+                            ) {
+                                Icon(Icons.Rounded.Add, tr("Add teacher", "Ajouter un enseignant"), tint = SchoolBlue)
+                            }
+                        }
+                        if (childTeachers.isEmpty()) {
+                            Text(
+                                tr("No teachers added yet. Tap + to add one.", "Aucun enseignant ajouté. Touchez + pour en ajouter un."),
+                                color = Ink.copy(alpha = .6f),
+                                fontSize = 13.sp
+                            )
+                        } else {
+                            childTeachers.forEach { teacher ->
+                                TeacherContactRow(
+                                    teacher = teacher,
+                                    onEdit = {
+                                        teacherBeingEdited = teacher
+                                        showTeacherDialog = true
+                                    },
+                                    onDelete = { vm.deleteTeacher(teacher.id) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1178,6 +1574,18 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         )
     }
 
+    if (showTeacherDialog) {
+        TeacherContactDialog(
+            childId = childId,
+            current = teacherBeingEdited,
+            onDismiss = { showTeacherDialog = false },
+            onSave = { teacher ->
+                vm.saveTeacher(teacher)
+                showTeacherDialog = false
+            }
+        )
+    }
+
     if (recordingAbsence) {
         AbsenceDialog(
             child = child,
@@ -1196,8 +1604,8 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             text = {
                 Text(
                     tr(
-                        "This permanently removes ${child.name} and their school items, absences, transportation information, and saved papers from ParentBell. This cannot be undone.",
-                        "Cette action supprimera définitivement ${child.name}, ses éléments scolaires, ses absences, ses renseignements de transport et ses documents enregistrés dans ParentBell. Cette action est irréversible."
+                        "This permanently removes ${child.name} and their school items, absences, teacher contacts, transportation information, and saved papers from ParentBell. This cannot be undone.",
+                        "Cette action supprimera définitivement ${child.name}, ses éléments scolaires, ses absences, ses enseignants, ses renseignements de transport et ses documents enregistrés dans ParentBell. Cette action est irréversible."
                     )
                 )
             },
@@ -1216,6 +1624,124 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
             }
         )
     }
+}
+
+@Composable
+private fun TeacherContactRow(
+    teacher: TeacherContact,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var confirmingDelete by remember(teacher.id) { mutableStateOf(false) }
+
+    Surface(color = SoftBlue.copy(alpha = .65f), shape = RoundedCornerShape(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.Person, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text(teacher.name, color = Ink, fontWeight = FontWeight.Bold)
+                Text(
+                    teacher.subject.ifBlank { tr("Subject or role not added", "Matière ou rôle non ajouté") },
+                    color = Ink.copy(alpha = .62f),
+                    fontSize = 12.sp
+                )
+                if (teacher.email.isNotBlank()) Text(teacher.email, color = Ink.copy(alpha = .7f), fontSize = 12.sp)
+                val phoneAndRoom = listOfNotNull(
+                    teacher.phone.takeIf { it.isNotBlank() },
+                    teacher.room.takeIf { it.isNotBlank() }?.let { "${tr("Room", "Salle")} $it" }
+                ).joinToString(" • ")
+                if (phoneAndRoom.isNotBlank()) Text(phoneAndRoom, color = Ink.copy(alpha = .7f), fontSize = 12.sp)
+            }
+            IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Rounded.Edit, tr("Edit teacher", "Modifier l’enseignant"), tint = SchoolBlue)
+            }
+            IconButton(onClick = { confirmingDelete = true }, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Rounded.Delete, tr("Remove teacher", "Supprimer l’enseignant"), tint = SchoolRed.copy(alpha = .78f))
+            }
+        }
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = { Text(tr("Remove ${teacher.name}?", "Supprimer ${teacher.name} ?")) },
+            text = { Text(tr("This removes only this teacher from the child’s profile.", "Seul cet enseignant sera supprimé du profil de l’enfant.")) },
+            confirmButton = {
+                Button(onClick = {
+                    confirmingDelete = false
+                    onDelete()
+                }) { Text(tr("Remove", "Supprimer")) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(tr("Cancel", "Annuler")) } }
+        )
+    }
+}
+
+@Composable
+private fun TeacherContactDialog(
+    childId: String,
+    current: TeacherContact?,
+    onDismiss: () -> Unit,
+    onSave: (TeacherContact) -> Unit
+) {
+    var name by remember(current?.id, childId) { mutableStateOf(current?.name.orEmpty()) }
+    var subject by remember(current?.id, childId) { mutableStateOf(current?.subject.orEmpty()) }
+    var email by remember(current?.id, childId) { mutableStateOf(current?.email.orEmpty()) }
+    var phone by remember(current?.id, childId) { mutableStateOf(current?.phone.orEmpty()) }
+    var room by remember(current?.id, childId) { mutableStateOf(current?.room.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (current == null) tr("Add teacher", "Ajouter un enseignant") else tr("Edit teacher", "Modifier l’enseignant")) },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 470.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(tr("Teacher name", "Nom de l’enseignant")) },
+                        singleLine = true,
+                        isError = name.isBlank()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = subject,
+                        onValueChange = { subject = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(tr("Subject or role", "Matière ou rôle")) },
+                        placeholder = { Text(tr("e.g. Math, French, Homeroom, Advisor", "p. ex. Maths, Français, Titulaire, Conseiller")) },
+                        singleLine = true
+                    )
+                }
+                item { OutlinedTextField(email, { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Email", "Courriel")) }, singleLine = true) }
+                item { OutlinedTextField(phone, { phone = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Phone", "Téléphone")) }, singleLine = true) }
+                item { OutlinedTextField(room, { room = it }, modifier = Modifier.fillMaxWidth(), label = { Text(tr("Room", "Salle")) }, singleLine = true) }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(
+                        (current ?: TeacherContact(childId = childId, name = name)).copy(
+                            childId = childId,
+                            name = name,
+                            subject = subject,
+                            email = email,
+                            phone = phone,
+                            room = room
+                        )
+                    )
+                }
+            ) { Text(tr("Save", "Enregistrer")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel", "Annuler")) } }
+    )
 }
 
 @Composable
@@ -1360,10 +1886,6 @@ private fun ReminderTimeRow(label: String, hour: Int, minute: Int, onClick: () -
 private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: (ChildProfile) -> Unit) {
     var name by remember(child.id) { mutableStateOf(child.name) }
     var grade by remember(child.id) { mutableStateOf(child.grade) }
-    var teacher by remember { mutableStateOf(child.teacherName) }
-    var email by remember { mutableStateOf(child.teacherEmail) }
-    var phone by remember { mutableStateOf(child.classroomPhone) }
-    var room by remember { mutableStateOf(child.room) }
     var school by remember { mutableStateOf(child.schoolName) }
     var schoolPhone by remember { mutableStateOf(child.schoolPhone) }
     var notes by remember { mutableStateOf(child.specialNotes) }
@@ -1386,10 +1908,6 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
                     )
                 }
                 item { OutlinedTextField(grade, { grade = it }, label = { Text(tr("Grade", "Niveau")) }, singleLine = true) }
-                item { OutlinedTextField(teacher, { teacher = it }, label = { Text(tr("Teacher", "Enseignant(e)")) }, singleLine = true) }
-                item { OutlinedTextField(email, { email = it }, label = { Text(tr("Teacher email", "Courriel de l’enseignant")) }, singleLine = true) }
-                item { OutlinedTextField(phone, { phone = it }, label = { Text(tr("Classroom phone", "Téléphone de la classe")) }, singleLine = true) }
-                item { OutlinedTextField(room, { room = it }, label = { Text(tr("Room", "Salle")) }, singleLine = true) }
                 item { OutlinedTextField(school, { school = it }, label = { Text(tr("School", "École")) }, singleLine = true) }
                 item { OutlinedTextField(schoolPhone, { schoolPhone = it }, label = { Text(tr("School phone", "Téléphone de l’école")) }, singleLine = true) }
                 item { OutlinedTextField(notes, { notes = it }, label = { Text(tr("Special notes", "Notes particulières")) }) }
@@ -1403,10 +1921,6 @@ private fun EditChildDialog(child: ChildProfile, onDismiss: () -> Unit, onSave: 
                         child.copy(
                             name = name.trim(),
                             grade = grade,
-                            teacherName = teacher,
-                            teacherEmail = email,
-                            classroomPhone = phone,
-                            room = room,
                             schoolName = school,
                             schoolPhone = schoolPhone,
                             specialNotes = notes

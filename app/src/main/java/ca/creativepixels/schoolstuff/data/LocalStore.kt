@@ -60,6 +60,24 @@ class LocalStore(context: Context) {
 
     fun saveTransportation(value: List<TransportationInfo>) = writeList("transportation", value)
 
+    fun loadTeachers(): List<TeacherContact> =
+        readList<TeacherContact?>("teachers")
+            .filterNotNull()
+            .map { teacher ->
+                TeacherContact(
+                    id = teacher.id.orEmpty().ifBlank { java.util.UUID.randomUUID().toString() },
+                    childId = teacher.childId.orEmpty(),
+                    name = teacher.name.orEmpty(),
+                    subject = teacher.subject.orEmpty(),
+                    email = teacher.email.orEmpty(),
+                    phone = teacher.phone.orEmpty(),
+                    room = teacher.room.orEmpty()
+                )
+            }
+            .filter { it.childId.isNotBlank() && it.name.isNotBlank() }
+
+    fun saveTeachers(value: List<TeacherContact>) = writeList("teachers", value)
+
     fun getParentNotes(): String = prefs.getString("parent_notes", "").orEmpty()
     fun setParentNotes(value: String) = prefs.edit().putString("parent_notes", value).apply()
 

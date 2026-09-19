@@ -25,6 +25,8 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         private set
     var transportation by mutableStateOf<List<TransportationInfo>>(emptyList())
         private set
+    var teachers by mutableStateOf<List<TeacherContact>>(emptyList())
+        private set
     var parentNotes by mutableStateOf("")
         private set
     var nightReminderHour by mutableStateOf(20)
@@ -47,6 +49,8 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         documents = store.loadDocuments()
         absences = store.loadAbsences()
         transportation = store.loadTransportation()
+        teachers = store.loadTeachers()
+        migrateLegacyTeachers()
         parentNotes = store.getParentNotes()
         nightReminderHour = store.getNightReminderHour()
         nightReminderMinute = store.getNightReminderMinute()
@@ -82,11 +86,13 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
         absences = absences.filterNot { it.childId == childId }
         documents = documents.filterNot { it.childId == childId }
         transportation = transportation.filterNot { it.childId == childId }
+        teachers = teachers.filterNot { it.childId == childId }
         store.saveChildren(children)
         store.saveItems(items)
         store.saveAbsences(absences)
         store.saveDocuments(documents)
         store.saveTransportation(transportation)
+        store.saveTeachers(teachers)
     }
 
     fun addItem(item: SchoolItem) {
@@ -171,6 +177,48 @@ class SchoolStuffViewModel(application: Application) : AndroidViewModel(applicat
     fun saveTransportation(info: TransportationInfo) {
         transportation = transportation.filterNot { it.childId == info.childId } + info
         store.saveTransportation(transportation)
+    }
+
+    fun teachersFor(childId: String): List<TeacherContact> = teachers
+        .filter { it.childId == childId }
+        .sortedWith(compareBy({ it.subject.lowercase() }, { it.name.lowercase() }))
+
+    fun saveTeacher(teacher: TeacherContact) {
+        val childId = teacher.childId.trim()
+        val name = teacher.name.trim()
+        if (childId.isBlank() || name.isBlank() || child(childId) == null) return
+        val normalized = teacher.copy(
+            childId = childId,
+            name = name,
+            subject = teacher.subject.trim(),
+            email = teacher.email.trim(),
+            phone = teacher.phone.trim(),
+            room = teacher.room.trim()
+        )
+        teachers = teachers.filterNot { it.id == normalized.id } + normalized
+        store.saveTeachers(teachers)
+    }
+
+    fun deleteTeacher(teacherId: String) {
+        teachers = teachers.filterNot { it.id == teacherId }
+        store.saveTeachers(teachers)
+    }
+
+    private fun migrateLegacyTeachers() {
+        val migrated = children.mapNotNull { child ->
+            if (child.teacherName.isBlank() || teachers.any { it.childId == child.id }) return@mapNotNull null
+            TeacherContact(
+                childId = child.id,
+                name = child.teacherName,
+                email = child.teacherEmail,
+                phone = child.classroomPhone,
+                room = child.room
+            )
+        }
+        if (migrated.isNotEmpty()) {
+            teachers = teachers + migrated
+            store.saveTeachers(teachers)
+        }
     }
 
     fun saveParentNotes(notes: String) {

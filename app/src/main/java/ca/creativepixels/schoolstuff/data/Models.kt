@@ -60,6 +60,16 @@ data class TransportationInfo(
     val pickupInfo: String = ""
 )
 
+data class TeacherContact(
+    val id: String = UUID.randomUUID().toString(),
+    val childId: String,
+    val name: String,
+    val subject: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val room: String = ""
+)
+
 data class DeviceCalendar(
     val id: Long,
     val displayName: String,

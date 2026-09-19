@@ -1232,6 +1232,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var editing by remember { mutableStateOf(false) }
     var editingTransportation by remember { mutableStateOf(false) }
     var recordingAbsence by remember { mutableStateOf(false) }
+    var absencesExpanded by remember { mutableStateOf(false) }
     var showAllAbsences by remember { mutableStateOf(false) }
     var deletingChild by remember { mutableStateOf(false) }
     var showTeacherDialog by remember { mutableStateOf(false) }
@@ -1257,7 +1258,13 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         contentPadding = PaddingValues(bottom = 26.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Header(child.name, tr("Your school dashboard. ♥", "Votre tableau de bord scolaire. ♥"), back = onBack, note = child.grade.ifBlank { tr("School year", "Année scolaire") }) }
+        item {
+            Header(
+                tr("Child Profile", "Profil de l’enfant"),
+                tr("School dashboard. ♥", "Tableau de bord scolaire. ♥"),
+                back = onBack
+            )
+        }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -1277,9 +1284,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             Icon(Icons.Rounded.Delete, tr("Delete ${child.name}", "Supprimer ${child.name}"), tint = SchoolRed)
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    if (child.schoolName.isNotBlank()) Text(child.schoolName, color = Ink.copy(alpha = .6f))
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     MockupMiniStrip()
                 }
             }
@@ -1315,78 +1320,6 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             HorizontalDivider(color = Ink.copy(alpha = .07f))
                         }
                         TextButton(onClick = onAddThing) { Icon(Icons.Rounded.Add, null); Text(tr("Add school thing", "Ajouter un élément scolaire")) }
-                    }
-                }
-            }
-        }
-        item {
-            val today = LocalDate.now()
-            val schoolYearAbsences = vm.absencesInSchoolYear(childId, today)
-            val yearStart = schoolYearStartFor(today)
-            val yearEnd = schoolYearEndFor(today)
-            val visibleAbsences = if (showAllAbsences) schoolYearAbsences else schoolYearAbsences.take(3)
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section(tr("Absence at a Glance", "Aperçu des absences"), SchoolPink) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(color = SoftPink, shape = RoundedCornerShape(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Rounded.Sick, null, tint = SchoolRed, modifier = Modifier.size(30.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        tr(
-                                            "${schoolYearAbsences.size} day${if (schoolYearAbsences.size == 1) "" else "s"} missed",
-                                            "${schoolYearAbsences.size} jour${if (schoolYearAbsences.size == 1) "" else "s"} d’absence"
-                                        ),
-                                        color = Ink,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 20.sp
-                                    )
-                                    Text(
-                                        tr(
-                                            "School year ${yearStart.year}–${yearEnd.year}",
-                                            "Année scolaire ${yearStart.year}–${yearEnd.year}"
-                                        ),
-                                        color = Ink.copy(alpha = .6f),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        Button(onClick = { recordingAbsence = true }) {
-                            Icon(Icons.Rounded.Add, null)
-                            Spacer(Modifier.width(6.dp))
-                            Text(tr("Record an absence", "Ajouter une absence"))
-                        }
-
-                        if (schoolYearAbsences.isEmpty()) {
-                            Text(
-                                tr("No absences recorded this school year.", "Aucune absence enregistrée cette année scolaire."),
-                                color = Ink.copy(alpha = .6f),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        } else {
-                            visibleAbsences.forEach { absence ->
-                                AbsenceRow(
-                                    absence = absence,
-                                    onDelete = { vm.deleteAbsence(absence.id) }
-                                )
-                                HorizontalDivider(color = Ink.copy(alpha = .07f))
-                            }
-                            if (schoolYearAbsences.size > 3) {
-                                TextButton(onClick = { showAllAbsences = !showAllAbsences }) {
-                                    Text(
-                                        if (showAllAbsences) tr("Show fewer", "Afficher moins")
-                                        else tr("Show all ${schoolYearAbsences.size}", "Afficher les ${schoolYearAbsences.size}")
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -1429,39 +1362,6 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                                     onView = { teacherBeingViewed = teacher }
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            val info = vm.transportationFor(childId)
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Section(tr("Transportation", "Transport"), SchoolGreen) {
-                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        if (info == null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text(tr("No transportation information added yet.", "Aucun renseignement de transport n’a été ajouté."), color = Ink.copy(alpha = .62f), modifier = Modifier.weight(1f))
-                            }
-                        } else if (info.mode == TransportationMode.PRIVATE) {
-                            InfoLine(Icons.Rounded.DirectionsCar, tr("Type", "Type"), transportationModeLabel(TransportationMode.PRIVATE))
-                            Text(
-                                info.pickupInfo.ifBlank { tr("Add who is picking up, where and when.", "Ajoutez qui vient chercher l’enfant, où et quand.") },
-                                color = Ink.copy(alpha = .7f),
-                                fontSize = 13.sp
-                            )
-                        } else {
-                            InfoLine(Icons.Rounded.DirectionsBus, tr("Bus number", "Numéro d’autobus"), info.busNumber.ifBlank { tr("Not added", "Non ajouté") })
-                            InfoLine(Icons.Rounded.LocationOn, tr("Pickup point", "Point d’embarquement"), info.pickupPoint.ifBlank { tr("Not added", "Non ajouté") })
-                            InfoLine(Icons.Rounded.Person, tr("Driver", "Chauffeur"), info.driverName.ifBlank { tr("Not added", "Non ajouté") })
-                            if (info.pickupInfo.isNotBlank()) Text(info.pickupInfo, color = Ink.copy(alpha = .7f), fontSize = 13.sp)
-                        }
-                        TextButton(onClick = { editingTransportation = true }) {
-                            Icon(Icons.Rounded.Edit, null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(if (info == null) tr("Add transportation", "Ajouter le transport") else tr("Edit transportation", "Modifier le transport"))
                         }
                     }
                 }
@@ -1537,6 +1437,130 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             Icon(Icons.Rounded.UploadFile, null)
                             Spacer(Modifier.width(6.dp))
                             Text(tr("Add Paper or Memory", "Ajouter un document ou un souvenir"))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            val info = vm.transportationFor(childId)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section(tr("Transportation", "Transport"), SchoolGreen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        if (info == null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.DirectionsBus, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    tr("No transportation information added yet.", "Aucun renseignement de transport n’a été ajouté."),
+                                    color = Ink.copy(alpha = .62f),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else if (info.mode == TransportationMode.PRIVATE) {
+                            InfoLine(Icons.Rounded.DirectionsCar, tr("Type", "Type"), transportationModeLabel(TransportationMode.PRIVATE))
+                            Text(
+                                info.pickupInfo.ifBlank { tr("Add who is picking up, where and when.", "Ajoutez qui vient chercher l’enfant, où et quand.") },
+                                color = Ink.copy(alpha = .7f),
+                                fontSize = 13.sp
+                            )
+                        } else {
+                            InfoLine(Icons.Rounded.DirectionsBus, tr("Bus number", "Numéro d’autobus"), info.busNumber.ifBlank { tr("Not added", "Non ajouté") })
+                            InfoLine(Icons.Rounded.LocationOn, tr("Pickup point", "Point d’embarquement"), info.pickupPoint.ifBlank { tr("Not added", "Non ajouté") })
+                            InfoLine(Icons.Rounded.Person, tr("Driver", "Chauffeur"), info.driverName.ifBlank { tr("Not added", "Non ajouté") })
+                            if (info.pickupInfo.isNotBlank()) Text(info.pickupInfo, color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                        }
+                        TextButton(onClick = { editingTransportation = true }) {
+                            Icon(Icons.Rounded.Edit, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (info == null) tr("Add transportation", "Ajouter le transport") else tr("Edit transportation", "Modifier le transport"))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            val today = LocalDate.now()
+            val schoolYearAbsences = vm.absencesInSchoolYear(childId, today)
+            val yearStart = schoolYearStartFor(today)
+            val yearEnd = schoolYearEndFor(today)
+            val visibleAbsences = if (showAllAbsences) schoolYearAbsences else schoolYearAbsences.take(3)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Section(tr("Absence at a Glance", "Aperçu des absences"), SchoolPink) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                val opening = !absencesExpanded
+                                absencesExpanded = opening
+                                if (!opening) showAllAbsences = false
+                            },
+                            color = SoftPink,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.Sick, null, tint = SchoolRed, modifier = Modifier.size(30.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        tr(
+                                            "${schoolYearAbsences.size} day${if (schoolYearAbsences.size == 1) "" else "s"} missed",
+                                            "${schoolYearAbsences.size} jour${if (schoolYearAbsences.size == 1) "" else "s"} d’absence"
+                                        ),
+                                        color = Ink,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 20.sp
+                                    )
+                                    Text(
+                                        tr(
+                                            "School year ${yearStart.year}–${yearEnd.year}",
+                                            "Année scolaire ${yearStart.year}–${yearEnd.year}"
+                                        ),
+                                        color = Ink.copy(alpha = .6f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Icon(
+                                    if (absencesExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                    if (absencesExpanded) tr("Collapse absences", "Réduire les absences") else tr("Open absences", "Ouvrir les absences"),
+                                    tint = Ink.copy(alpha = .5f)
+                                )
+                            }
+                        }
+
+                        if (absencesExpanded) {
+                            Button(onClick = { recordingAbsence = true }) {
+                                Icon(Icons.Rounded.Add, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(tr("Record an absence", "Ajouter une absence"))
+                            }
+
+                            if (schoolYearAbsences.isEmpty()) {
+                                Text(
+                                    tr("No absences recorded this school year.", "Aucune absence enregistrée cette année scolaire."),
+                                    color = Ink.copy(alpha = .6f),
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            } else {
+                                visibleAbsences.forEach { absence ->
+                                    AbsenceRow(
+                                        absence = absence,
+                                        onDelete = { vm.deleteAbsence(absence.id) }
+                                    )
+                                    HorizontalDivider(color = Ink.copy(alpha = .07f))
+                                }
+                                if (schoolYearAbsences.size > 3) {
+                                    TextButton(onClick = { showAllAbsences = !showAllAbsences }) {
+                                        Text(
+                                            if (showAllAbsences) tr("Show fewer", "Afficher moins")
+                                            else tr("Show all ${schoolYearAbsences.size}", "Afficher les ${schoolYearAbsences.size}")
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

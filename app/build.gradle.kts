@@ -33,8 +33,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 37
-        versionName = "0.1.17-clean-teachers"
+        versionCode = 38
+        versionName = "0.1.18-organized-child-profile"
     }
 
     buildFeatures {

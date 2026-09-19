@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-play-update:
-    if: github.event.head_commit.message == 'Allow child names to be edited'
+    if: github.event.head_commit.message == 'Repair Android build workflow'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -18,9 +18,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Install Android 36 platform
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"

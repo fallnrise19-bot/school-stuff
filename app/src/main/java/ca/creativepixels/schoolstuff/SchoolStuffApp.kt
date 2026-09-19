@@ -1236,6 +1236,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
     var deletingChild by remember { mutableStateOf(false) }
     var showTeacherDialog by remember { mutableStateOf(false) }
     var teacherBeingEdited by remember { mutableStateOf<TeacherContact?>(null) }
+    var teacherBeingViewed by remember { mutableStateOf<TeacherContact?>(null) }
 
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -1279,7 +1280,13 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                     Text(
                         primaryTeacher?.name ?: tr("Add teacher information", "Ajouter les renseignements de l’enseignant"),
                         color = Ink,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = if (primaryTeacher != null) {
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { teacherBeingViewed = primaryTeacher }
+                                .padding(vertical = 3.dp)
+                        } else Modifier
                     )
                     primaryTeacher?.let { teacher ->
                         val teacherDetails = listOfNotNull(
@@ -1437,6 +1444,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
                             childTeachers.forEach { teacher ->
                                 TeacherContactRow(
                                     teacher = teacher,
+                                    onView = { teacherBeingViewed = teacher },
                                     onEdit = {
                                         teacherBeingEdited = teacher
                                         showTeacherDialog = true
@@ -1599,6 +1607,18 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
         )
     }
 
+    teacherBeingViewed?.let { teacher ->
+        TeacherInfoDialog(
+            teacher = teacher,
+            onDismiss = { teacherBeingViewed = null },
+            onEdit = {
+                teacherBeingViewed = null
+                teacherBeingEdited = teacher
+                showTeacherDialog = true
+            }
+        )
+    }
+
     if (recordingAbsence) {
         AbsenceDialog(
             child = child,
@@ -1642,6 +1662,7 @@ private fun ChildScreen(vm: SchoolStuffViewModel, childId: String, onBack: () ->
 @Composable
 private fun TeacherContactRow(
     teacher: TeacherContact,
+    onView: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1654,7 +1675,13 @@ private fun TeacherContactRow(
         ) {
             Icon(Icons.Rounded.Person, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(9.dp))
-            Column(Modifier.weight(1f)) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onView)
+                    .padding(vertical = 3.dp)
+            ) {
                 Text(teacher.name, color = Ink, fontWeight = FontWeight.Bold)
                 Text(
                     teacher.subject.ifBlank { tr("Subject or role not added", "Matière ou rôle non ajouté") },
@@ -1690,6 +1717,68 @@ private fun TeacherContactRow(
             },
             dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(tr("Cancel", "Annuler")) } }
         )
+    }
+}
+
+@Composable
+private fun TeacherInfoDialog(
+    teacher: TeacherContact,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(teacher.name, color = Ink, fontWeight = FontWeight.Black) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TeacherInfoLine(
+                    icon = Icons.Rounded.School,
+                    label = tr("Subject or role", "Matière ou rôle"),
+                    value = teacher.subject
+                )
+                TeacherInfoLine(
+                    icon = Icons.Rounded.Email,
+                    label = tr("Email", "Courriel"),
+                    value = teacher.email
+                )
+                TeacherInfoLine(
+                    icon = Icons.Rounded.Call,
+                    label = tr("Phone", "Téléphone"),
+                    value = teacher.phone
+                )
+                TeacherInfoLine(
+                    icon = Icons.Rounded.LocationOn,
+                    label = tr("Room", "Salle"),
+                    value = teacher.room
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text(tr("Close", "Fermer")) }
+        },
+        dismissButton = {
+            TextButton(onClick = onEdit) {
+                Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(tr("Edit", "Modifier"))
+            }
+        }
+    )
+}
+
+@Composable
+private fun TeacherInfoLine(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(icon, null, tint = SchoolBlue, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(label, color = Ink.copy(alpha = .58f), fontSize = 12.sp)
+            Text(
+                value.ifBlank { tr("Not added", "Non ajouté") },
+                color = Ink,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 

@@ -333,12 +333,25 @@ private fun SchoolRow(
             Text(item.title, color = Ink, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val who = if (item.childId.isBlank()) tr("Family", "Famille") else vm.childName(item.childId)
             Text("$who • ${categoryLabel(item.category)}", color = Ink.copy(alpha = .55f), fontSize = 12.sp)
-            if (item.notes.isNotBlank() || item.needsItemFromHome) {
+            if (item.notes.isNotBlank()) {
                 Text(
-                    tr("Notes added · tap to view", "Notes ajoutées · touchez pour voir"),
+                    text = if (item.needsItemFromHome) {
+                        tr("Bring to school: ${item.notes}", "À apporter à l’école : ${item.notes}")
+                    } else {
+                        tr("Notes: ${item.notes}", "Notes : ${item.notes}")
+                    },
+                    color = if (item.needsItemFromHome) SchoolBlue else Ink.copy(alpha = .72f),
+                    fontSize = 12.sp,
+                    fontWeight = if (item.needsItemFromHome) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else if (item.needsItemFromHome) {
+                Text(
+                    tr("Bring something to school", "Apporter quelque chose à l’école"),
                     color = SchoolBlue,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

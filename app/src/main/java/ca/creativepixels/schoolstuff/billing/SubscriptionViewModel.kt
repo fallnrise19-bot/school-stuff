@@ -165,7 +165,12 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) = onMain {
         state = state.copy(purchasing = false)
         when (result.responseCode) {
-            BillingClient.BillingResponseCode.OK,
+            BillingClient.BillingResponseCode.OK -> {
+                // Process the signed callback receipt even if the subsequent
+                // ownership query loses its network connection.
+                purchases?.firstOrNull { verify(it) }?.let { acceptPurchase(it) }
+                queryPurchases()
+            }
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> queryPurchases()
             BillingClient.BillingResponseCode.USER_CANCELED -> state = state.copy(
                 message = tr("Purchase cancelled. You were not subscribed.", "Achat annulé. Aucun abonnement n’a été activé."))
@@ -221,11 +226,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
             val valid = purchased.firstOrNull { verify(it) }
             val pending = relevant.any { it.purchaseState == Purchase.PurchaseState.PENDING }
             if (valid != null) {
-                lastCheckedAt = System.currentTimeMillis()
-                state = state.copy(active = true, autoRenewing = valid.isAutoRenewing, pending = false, checked = true,
-                    message = tr("Your ParentBell subscription is active.", "Votre abonnement ParentBell est actif."))
-                runCatching { receiptFile.writeText(gson.toJson(CachedReceipt(valid.originalJson, valid.signature, lastCheckedAt))) }
-                acknowledge(valid)
+                acceptPurchase(valid)
             } else {
                 clearReceipt()
                 state = state.copy(active = false, autoRenewing = false, pending = pending, checked = true,
@@ -248,6 +249,14 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
             purchase.packageName == BuildConfig.APPLICATION_ID &&
             SubscriptionPolicy.PRODUCT_ID in purchase.products &&
             purchase.purchaseState == Purchase.PurchaseState.PURCHASED && purchase.purchaseToken.isNotBlank()
+
+    private fun acceptPurchase(purchase: Purchase) {
+        lastCheckedAt = System.currentTimeMillis()
+        state = state.copy(active = true, autoRenewing = purchase.isAutoRenewing, pending = false, checked = true,
+            message = tr("Your ParentBell subscription is active.", "Votre abonnement ParentBell est actif."))
+        runCatching { receiptFile.writeText(gson.toJson(CachedReceipt(purchase.originalJson, purchase.signature, lastCheckedAt))) }
+        acknowledge(purchase)
+    }
 
     private fun acknowledge(purchase: Purchase) {
         if (purchase.isAcknowledged || !acknowledging.add(purchase.purchaseToken)) return

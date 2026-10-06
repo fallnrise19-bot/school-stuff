@@ -1,6 +1,6 @@
 # ParentBell monthly subscription
 
-Build 39 is a billing preparation build, not a paid production release. Existing app data is preserved. Testing access stays open; payment is disabled until the public Play billing key is configured and Play returns an eligible monthly plan. The price shown in the app comes from Google Play, never a hard-coded currency or amount.
+Build 40 is a billing preparation build, not a paid production release. Existing app data is preserved. Testing access stays open; payment is disabled until the public Play billing key is configured and Play returns an eligible monthly plan. The page no longer displays Coming soon or testing-access messages. The price shown in the app comes from Google Play, never a hard-coded currency or amount.
 
 ## Google Play setup
 

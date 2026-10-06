@@ -53,12 +53,9 @@ fun SubscriptionScreen(
                         Text(tr("${state.price} / month", "${state.price} / mois"), color = Ink, fontWeight = FontWeight.Bold, fontSize = 26.sp)
                     } else {
                         Text(tr("Monthly plan", "Abonnement mensuel"), color = Ink, fontWeight = FontWeight.Bold, fontSize = 23.sp)
-                        Text(tr("Your local price appears when Google Play makes the plan available.", "Le prix dans votre devise s’affiche lorsque Google Play offre l’abonnement."), color = Ink.copy(alpha = .68f), fontSize = 13.sp)
+                        Text(tr("Refresh subscription status to load your local price from Google Play.", "Actualisez l’état de l’abonnement pour charger le prix dans votre devise depuis Google Play."), color = Ink.copy(alpha = .68f), fontSize = 13.sp)
                     }
                     Text(state.summary, color = Ink, fontWeight = FontWeight.SemiBold)
-                    if (!BuildConfig.REQUIRE_SUBSCRIPTION) {
-                        Text(tr("Testing access is open. A subscription is not required in this build.", "L’accès de test est ouvert. Aucun abonnement n’est requis dans cette version."), color = Ink.copy(alpha = .7f), fontSize = 13.sp)
-                    }
                     if (state.active) {
                         Text(
                             if (state.autoRenewing) tr("Your subscription renews through Google Play.", "Votre abonnement se renouvelle par Google Play.")

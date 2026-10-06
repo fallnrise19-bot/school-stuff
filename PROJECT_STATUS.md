@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current prototype: 0.1.19-subscription-settings / versionCode 39
+Current build: 0.1.20 / versionCode 40
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -22,3 +22,5 @@ Current prototype areas:
 - Android Calendar Provider import/write-back
 
 Subscription page is now available from Settings in English and French, with Google Play product pricing, checkout, restore, status and management/cancellation links. Whole-app subscription enforcement is implemented but OFF in this preparation build so testers are not locked out before Play setup is complete. See SUBSCRIPTION_SETUP.md for product configuration, verification key and launch checks. Cloud backup and family sharing are not included or advertised.
+
+Build 40 removes Coming soon and testing-access text from the subscription page and Settings summary. Missing subscription information uses normal status/error messages; purchase verification and enforcement configuration are unchanged.

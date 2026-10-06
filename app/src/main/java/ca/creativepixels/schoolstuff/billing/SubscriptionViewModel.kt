@@ -38,8 +38,7 @@ data class SubscriptionState(
         active -> tr("Active", "Actif")
         pending -> tr("Payment pending", "Paiement en attente")
         checking -> tr("Checking Google Play…", "Vérification de Google Play…")
-        !verificationConfigured -> tr("Coming soon · testing access is open", "Bientôt offert · accès de test ouvert")
-        !checked -> tr("Status unavailable", "État indisponible")
+        !verificationConfigured || !checked -> tr("Status unavailable", "État indisponible")
         else -> tr("Not subscribed", "Aucun abonnement")
     }
 }
@@ -202,7 +201,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
                 checkout?.invoke(product, offer)
             } else {
                 state = state.copy(planAvailable = false, price = null, message = if (result.responseCode == BillingClient.BillingResponseCode.OK)
-                    tr("The monthly subscription is not available yet. Please try again later.", "L’abonnement mensuel n’est pas encore offert. Réessayez plus tard.")
+                    tr("Subscription details could not be loaded. Please try again.", "Les détails de l’abonnement n’ont pas pu être chargés. Réessayez.")
                     else billingError(result.responseCode))
                 checkout?.invoke(null, null)
             }

@@ -50,8 +50,8 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 39
-        versionName = "0.1.19-subscription-settings"
+        versionCode = 40
+        versionName = "0.1.20"
         buildConfigField("String", "BILLING_PUBLIC_KEY", "\"$billingPublicKey\"")
         buildConfigField("boolean", "REQUIRE_SUBSCRIPTION", requireSubscription.toString())
     }

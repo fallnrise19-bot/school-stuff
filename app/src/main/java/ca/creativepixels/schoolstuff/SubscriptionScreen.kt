@@ -118,8 +118,8 @@ fun SubscriptionScreen(
                     "Facturation mensuelle par votre compte Google Play. Renouvellement automatique sauf annulation. Gérez ou annulez dans Google Play; l’annulation arrête le prochain renouvellement et l’accès continue jusqu’à la fin de la période payée. Aucun essai gratuit n’est inclus."
                 ), color = Ink.copy(alpha = .68f), fontSize = 13.sp)
                 Text(tr(
-                    "Your school information stays on this phone. A subscription does not add cloud backup or family sharing. Cancelling never deletes your saved information. Google Play checks your subscription when you return to the app; verified access is available offline for up to 24 hours.",
-                    "Vos renseignements scolaires restent sur ce téléphone. L’abonnement n’ajoute ni sauvegarde infonuagique ni partage familial. L’annulation ne supprime jamais vos renseignements enregistrés. Google Play vérifie l’abonnement au retour dans l’appli; l’accès vérifié est disponible hors ligne pendant un maximum de 24 heures."
+                    "ParentBell stores school information on this device. A subscription does not add cloud backup or family sharing. Cancelling never deletes your saved information. Google Play checks your subscription when you return to the app; verified access is available offline for up to 24 hours.",
+                    "ParentBell enregistre les renseignements scolaires sur cet appareil. L’abonnement n’ajoute ni sauvegarde infonuagique ni partage familial. L’annulation ne supprime jamais vos renseignements enregistrés. Google Play vérifie l’abonnement au retour dans l’appli; l’accès vérifié est disponible hors ligne pendant un maximum de 24 heures."
                 ), color = Ink.copy(alpha = .68f), fontSize = 13.sp)
             }
         }

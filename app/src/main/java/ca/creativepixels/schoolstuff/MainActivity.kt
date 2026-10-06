@@ -33,9 +33,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.viewModels
+import ca.creativepixels.schoolstuff.billing.SubscriptionViewModel
 import ca.creativepixels.schoolstuff.data.LocalStore
 
 class MainActivity : FragmentActivity() {
+    private val subscription: SubscriptionViewModel by viewModels()
     private lateinit var store: LocalStore
     private lateinit var biometricPrompt: BiometricPrompt
     private var appLockEnabled by mutableStateOf(false)
@@ -99,7 +102,12 @@ class MainActivity : FragmentActivity() {
                     onChangeAppLock = ::changeAppLock,
                     onTestAppLock = ::testAppLock,
                     appLanguage = store.getAppLanguage(),
-                    onChangeLanguage = ::changeLanguage
+                    onChangeLanguage = ::changeLanguage,
+                    subscription = subscription.state,
+                    onSubscribe = { subscription.subscribe(this) },
+                    onRestorePurchases = subscription::restorePurchases,
+                    onManageSubscription = { subscription.manageSubscription(this) },
+                    onRefreshSubscription = subscription::refresh
                 )
             } else {
                 SchoolStuffTheme {
@@ -128,6 +136,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onPostResume() {
         super.onPostResume()
+        subscription.resume()
         if (promptWhenResumed && appLockEnabled && !appUnlocked) {
             promptWhenResumed = false
             requestUnlock()

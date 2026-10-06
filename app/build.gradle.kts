@@ -1,4 +1,7 @@
 import java.util.Base64
+import java.util.Properties
+import java.security.KeyFactory
+import java.security.spec.X509EncodedKeySpec
 
 plugins {
     id("com.android.application")
@@ -25,6 +28,20 @@ val playSigningReady = listOf(
     playKeyPassword
 ).all { !it.isNullOrBlank() }
 
+val billingProperties = Properties().apply {
+    rootProject.file("billing.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val billingPublicKey = (System.getenv("PARENTBELL_BILLING_PUBLIC_KEY")
+    ?: billingProperties.getProperty("publicKey", "")).replace(Regex("\\s+"), "")
+val requireSubscription = (System.getenv("PARENTBELL_REQUIRE_SUBSCRIPTION")
+    ?: billingProperties.getProperty("requireSubscription", "false")).toBooleanStrict()
+val billingKeyValid = runCatching {
+    KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(Base64.getDecoder().decode(billingPublicKey)))
+}.isSuccess
+if ((requireSubscription || billingPublicKey.isNotBlank()) && !billingKeyValid) {
+    throw GradleException("ParentBell subscription enforcement requires a valid PUBLIC Play billing key in billing.properties.")
+}
+
 android {
     namespace = "ca.creativepixels.schoolstuff"
     compileSdk = 36
@@ -33,8 +50,10 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 38
-        versionName = "0.1.18-organized-child-profile"
+        versionCode = 39
+        versionName = "0.1.19-subscription-settings"
+        buildConfigField("String", "BILLING_PUBLIC_KEY", "\"$billingPublicKey\"")
+        buildConfigField("boolean", "REQUIRE_SUBSCRIPTION", requireSubscription.toString())
     }
 
     buildFeatures {
@@ -104,6 +123,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.android.billingclient:billing:8.3.0")
 
     testImplementation("junit:junit:4.13.2")
 }

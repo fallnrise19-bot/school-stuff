@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -141,6 +142,7 @@ import ca.creativepixels.schoolstuff.data.TransportationMode
 import ca.creativepixels.schoolstuff.data.schoolYearEndFor
 import ca.creativepixels.schoolstuff.data.schoolYearStartFor
 import ca.creativepixels.schoolstuff.notifications.ReminderNotifications
+import ca.creativepixels.schoolstuff.billing.SubscriptionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -168,22 +170,30 @@ fun SchoolStuffApp(
     onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
     onTestAppLock: ((Boolean, String) -> Unit) -> Unit,
     appLanguage: String,
-    onChangeLanguage: (String) -> Unit
+    onChangeLanguage: (String) -> Unit,
+    subscription: SubscriptionState,
+    onSubscribe: () -> Unit,
+    onRestorePurchases: () -> Unit,
+    onManageSubscription: () -> Unit,
+    onRefreshSubscription: () -> Unit
 ) {
     SchoolStuffTheme {
         var tab by remember { mutableStateOf(MainTab.HOME) }
         var childPage by remember { mutableStateOf<String?>(null) }
         var addingThing by remember { mutableStateOf(false) }
+        var subscriptionPage by remember { mutableStateOf(false) }
+        val subscriptionRequired = BuildConfig.REQUIRE_SUBSCRIPTION && !subscription.active
+        BackHandler(enabled = subscriptionPage) { subscriptionPage = false }
 
         Scaffold(
             containerColor = Paper,
             bottomBar = {
-                if (childPage == null && !addingThing) {
+                if (!subscriptionPage && (subscriptionRequired || (childPage == null && !addingThing))) {
                     NavigationBar(containerColor = Color.White) {
                         MainTab.entries.forEach { item ->
                             NavigationBarItem(
                                 selected = tab == item,
-                                onClick = { tab = item },
+                                onClick = { tab = item; childPage = null; addingThing = false },
                                 icon = { Icon(item.icon, contentDescription = null) },
                                 label = { Text(tr(item.english, item.french)) }
                             )
@@ -194,12 +204,21 @@ fun SchoolStuffApp(
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when {
+                    subscriptionPage || (subscriptionRequired && tab != MainTab.SETTINGS) -> SubscriptionScreen(
+                        state = subscription,
+                        onSubscribe = onSubscribe,
+                        onRestore = onRestorePurchases,
+                        onManage = onManageSubscription,
+                        onRefresh = onRefreshSubscription,
+                        onBack = if (subscriptionPage) ({ subscriptionPage = false }) else null
+                    )
                     addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
                     childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })
                     tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
                     tab == MainTab.CALENDAR -> CalendarScreen(vm)
                     tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
-                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock, appLanguage, onChangeLanguage)
+                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock, appLanguage, onChangeLanguage,
+                        subscription, onSubscription = { subscriptionPage = true; onRefreshSubscription() })
                 }
             }
         }
@@ -2533,7 +2552,9 @@ private fun SettingsScreen(
     onChangeAppLock: (Boolean, (Boolean, String) -> Unit) -> Unit,
     onTestAppLock: ((Boolean, String) -> Unit) -> Unit,
     appLanguage: String,
-    onChangeLanguage: (String) -> Unit
+    onChangeLanguage: (String) -> Unit,
+    subscription: SubscriptionState,
+    onSubscription: () -> Unit
 ) {
     val context = LocalContext.current
     val repo = remember { CalendarProviderRepository(context) }
@@ -2667,6 +2688,24 @@ private fun SettingsScreen(
     ) {
         item { Header(tr("Settings", "Paramètres"), tr("Everything useful, without the giant wall of controls. ♥", "Tout ce qui est utile, sans le mur géant d’options. ♥"), note = tr("Tap a section to open it", "Touchez une section pour l’ouvrir")) }
         item {
+            Card(
+                onClick = onSubscription,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                colors = CardDefaults.cardColors(containerColor = SoftBlue),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Star, null, tint = SchoolBlue, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("Subscription", "Abonnement"), color = Ink, fontWeight = FontWeight.Bold)
+                        Text(subscription.summary, color = Ink.copy(alpha = .7f), fontSize = 13.sp)
+                    }
+                    Icon(Icons.Rounded.ArrowForward, null, tint = SchoolBlue)
+                }
+            }
+        }
+        item {
             CollapsibleSettingsCard(
                 title = tr("Language", "Langue"),
                 summary = if (appLanguage == AppLanguage.FRENCH) "Français" else "English",
@@ -2696,6 +2735,7 @@ private fun SettingsScreen(
                 }
             }
         }
+        if (!BuildConfig.REQUIRE_SUBSCRIPTION || subscription.active) {
         item {
             CollapsibleSettingsCard(
                 title = "Google Calendar",
@@ -2830,6 +2870,7 @@ private fun SettingsScreen(
                         }
                     }
             }
+        }
         }
         item {
             CollapsibleSettingsCard(

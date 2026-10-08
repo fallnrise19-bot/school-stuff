@@ -1,6 +1,6 @@
 # ParentBell monthly subscription
 
-Build 40 is a billing preparation build, not a paid production release. Existing app data is preserved. Testing access stays open; payment is disabled until the public Play billing key is configured and Play returns an eligible monthly plan. The page no longer displays Coming soon or testing-access messages. The price shown in the app comes from Google Play, never a hard-coded currency or amount.
+Build 41 is a purchase-testing build, not a paid production release. ParentBell's public Play billing key is configured. Checkout becomes available when Google Play returns the active, eligible monthly plan. Existing app data is preserved, and app access remains open while purchase testing is completed. The page does not display Coming soon or testing-access messages. The price shown in the app comes from Google Play, never a hard-coded currency or amount.
 
 ## Google Play setup
 
@@ -8,7 +8,7 @@ Upload a bundle containing Billing Library 8.3.0 to an internal or closed track 
 
 Create subscription `parentbell_monthly`, named ParentBell Monthly. Add the auto-renewing base plan `monthly`, with billing period one month and the Canadian price CAD $3.99. Select availability countries and review other currencies in Play Console. Activate the base plan. Do not add a trial, introductory offer, installments or a prepaid plan; the app intentionally selects only the regular monthly base plan.
 
-In ParentBell's Play Console monetisation/licensing setup, copy the Base64 PUBLIC licensing/billing key into `publicKey` in `billing.properties`. This public verification key can be committed to the repository. It is NOT the private upload keystore, keystore password or a service-account credential. It may also be provided as `PARENTBELL_BILLING_PUBLIC_KEY` during builds.
+ParentBell's Base64 PUBLIC licensing/billing key from Play Console is configured in `publicKey` in `billing.properties`. This public verification key can be committed to the repository. It is NOT the private upload keystore, keystore password or a service-account credential. It may also be provided as `PARENTBELL_BILLING_PUBLIC_KEY` during builds.
 
 ## Before enabling payment enforcement
 

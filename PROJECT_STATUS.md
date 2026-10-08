@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current build: 0.1.20 / versionCode 40
+Current build: 0.1.21 / versionCode 41
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -24,3 +24,5 @@ Current prototype areas:
 Subscription page is now available from Settings in English and French, with Google Play product pricing, checkout, restore, status and management/cancellation links. Whole-app subscription enforcement is implemented but OFF in this preparation build so testers are not locked out before Play setup is complete. See SUBSCRIPTION_SETUP.md for product configuration, verification key and launch checks. Cloud backup and family sharing are not included or advertised.
 
 Build 40 removes Coming soon and testing-access text from the subscription page and Settings summary. Missing subscription information uses normal status/error messages; purchase verification and enforcement configuration are unchanged.
+
+Build 41 configures ParentBell's public Google Play billing key for purchase verification. It is intended for an internal or closed test track, with the `parentbell_monthly` subscription and `monthly` base plan at CAD $3.99/month. Enforcement remains off until Play-installed purchase/restore checks pass. The final paid production build must use a higher versionCode and enable enforcement after those checks.

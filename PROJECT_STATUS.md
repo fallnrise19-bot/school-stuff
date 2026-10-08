@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current build: 0.1.21 / versionCode 41
+Current build: 0.1.22 / versionCode 42
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -21,8 +21,10 @@ Current prototype areas:
 - Optional Android app lock using an enrolled fingerprint, face, or device credential, with a 30-second background grace period and hidden recent-app preview
 - Android Calendar Provider import/write-back
 
-Subscription page is now available from Settings in English and French, with Google Play product pricing, checkout, restore, status and management/cancellation links. Whole-app subscription enforcement is implemented but OFF in this preparation build so testers are not locked out before Play setup is complete. See SUBSCRIPTION_SETUP.md for product configuration, verification key and launch checks. Cloud backup and family sharing are not included or advertised.
+Subscription page is now available from Settings in English and French, with Google Play product pricing, checkout, restore, status and management/cancellation links. Whole-app subscription enforcement is ON for internal validation in build 42. The basic Play licence-test purchase and restart/restore flow passed in build 41; the lock and remaining launch checks still need device testing before production. See SUBSCRIPTION_SETUP.md for product configuration, verification key and launch checks. Cloud backup and family sharing are not included or advertised.
 
 Build 40 removes Coming soon and testing-access text from the subscription page and Settings summary. Missing subscription information uses normal status/error messages; purchase verification and enforcement configuration are unchanged.
 
 Build 41 configures ParentBell's public Google Play billing key for purchase verification. It is intended for an internal or closed test track, with the `parentbell_monthly` subscription and `monthly` base plan at CAD $3.99/month. Enforcement remains off until Play-installed purchase/restore checks pass. The final paid production build must use a higher versionCode and enable enforcement after those checks.
+
+Build 42 enables the existing subscription gate for Home, Calendar, Kids and child/item subpages. Subscription management, language, security and About remain accessible in Settings. This is an internal-validation candidate, not a production approval. No local school-data schema, migration or deletion changes were made.

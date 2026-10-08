@@ -1,6 +1,6 @@
 # ParentBell monthly subscription
 
-Build 41 is a purchase-testing build, not a paid production release. ParentBell's public Play billing key is configured. Checkout becomes available when Google Play returns the active, eligible monthly plan. Existing app data is preserved, and app access remains open while purchase testing is completed. The page does not display Coming soon or testing-access messages. The price shown in the app comes from Google Play, never a hard-coded currency or amount.
+Build 42 (0.1.22) enables the whole-app subscription requirement for internal validation. On 8 October 2026, the owner completed a Play-installed licence-test purchase and reported Active status after restarting the app and tapping Restore purchases. This validates that basic flow, not the entire launch checklist. The exact enforcement build still needs testing for subscribed access, unpaid/expired blocking and the remaining scenarios below before production. Existing app data is preserved, and the app price comes from Google Play.
 
 ## Google Play setup
 
@@ -12,11 +12,11 @@ ParentBell's Base64 PUBLIC licensing/billing key from Play Console is configured
 
 ## Before enabling payment enforcement
 
-Keep `requireSubscription=false` until checkout and restore have been tested from a Play-installed build using a Google Play licence tester. A normal debug sideload is not proof that live billing works. Closed-test enrolment alone does not make somebody a licence tester; configure that separately to avoid real charges.
+Checkout and basic restart/restore were tested in build 41, so `requireSubscription=true` is now enabled for internal validation in build 42. A normal debug sideload is not proof that live billing works. Closed-test enrolment alone does not make somebody a licence tester; configure that separately to avoid real charges.
 
 Verify the displayed CAD $3.99 monthly price, the Google Play checkout disclosure, purchase and automatic app unlock, repeated taps without a second checkout, cancelled checkout, pending payment without unlock, delayed completed payment on return, acknowledgement, restore with the same Play account after reinstall, purchase using a different Play account, cancellation with access through the paid period, expiry/refund revocation, interrupted network access, and English/French navigation. Confirm saved children and school items survive an update and subscription cancellation.
 
-Then change `requireSubscription=true`, increment versionCode for a new Play upload, and build/test that exact production configuration. The build rejects missing or malformed public verification keys. An unpaid or expired subscription routes Home, Calendar, Kids and child/item subpages to the subscription page. Settings, language, security and subscription management remain available. Calendar import/write controls are hidden without access. Cancelling or expiry does not erase local data or cancel already-scheduled local reminders.
+`requireSubscription=true` is enabled in build 42 with a higher versionCode. Build and test this exact configuration before promoting it to production. The build rejects missing or malformed public verification keys. An unpaid or expired subscription routes Home, Calendar, Kids and child/item subpages to the subscription page. Settings, language, security and subscription management remain available. Calendar import/write controls are hidden without access. Cancelling or expiry does not erase local data or cancel already-scheduled local reminders.
 
 Review the Play listing/privacy policy to disclose Google Play payments and local school data. This subscription does not introduce cloud storage or household sharing. Completing closed testing and applying for production access is separate from activating subscriptions; do not publish this preparation build as the paid final release.
 

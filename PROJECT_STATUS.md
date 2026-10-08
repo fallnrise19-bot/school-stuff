@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current build: 0.1.22 / versionCode 42
+Current build: 0.1.23 / versionCode 43
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -28,3 +28,5 @@ Build 40 removes Coming soon and testing-access text from the subscription page 
 Build 41 configures ParentBell's public Google Play billing key for purchase verification. It is intended for an internal or closed test track, with the `parentbell_monthly` subscription and `monthly` base plan at CAD $3.99/month. Enforcement remains off until Play-installed purchase/restore checks pass. The final paid production build must use a higher versionCode and enable enforcement after those checks.
 
 Build 42 enables the existing subscription gate for Home, Calendar, Kids and child/item subpages. Subscription management, language, security and About remain accessible in Settings. This is an internal-validation candidate, not a production approval. No local school-data schema, migration or deletion changes were made.
+
+Build 43 replaces the unpaid Home/Calendar/Kids paywall with an interactive, read-only example family preview. Users can filter example school items, open their details, browse calendar months/dates and open example child profiles. Clearly labelled examples use the app artwork and English/French copy. The preview never receives the real data ViewModel or writes to school storage. Subscription remains required for real family information and changes. Subscription and Settings remain accessible; subscribers continue to use the existing real screens. Device validation is still required before production.

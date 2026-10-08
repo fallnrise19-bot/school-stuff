@@ -204,13 +204,23 @@ fun SchoolStuffApp(
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when {
-                    subscriptionPage || (subscriptionRequired && tab != MainTab.SETTINGS) -> SubscriptionScreen(
+                    subscriptionPage -> SubscriptionScreen(
                         state = subscription,
                         onSubscribe = onSubscribe,
                         onRestore = onRestorePurchases,
                         onManage = onManageSubscription,
                         onRefresh = onRefreshSubscription,
-                        onBack = if (subscriptionPage) ({ subscriptionPage = false }) else null
+                        onBack = { subscriptionPage = false },
+                        onPreview = if (subscriptionRequired) ({
+                            subscriptionPage = false
+                            tab = MainTab.HOME
+                            childPage = null
+                            addingThing = false
+                        }) else null
+                    )
+                    subscriptionRequired && tab != MainTab.SETTINGS -> ParentBellPreviewScreen(
+                        page = tab.name,
+                        onSubscription = { subscriptionPage = true; onRefreshSubscription() }
                     )
                     addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
                     childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })

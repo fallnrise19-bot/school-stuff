@@ -23,7 +23,8 @@ fun SubscriptionScreen(
     onRestore: () -> Unit,
     onManage: () -> Unit,
     onRefresh: () -> Unit,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onPreview: (() -> Unit)? = null
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -40,6 +41,13 @@ fun SubscriptionScreen(
                 Column {
                     Text(tr("Subscription", "Abonnement"), color = Ink, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                     Text(tr("One plan for all of ParentBell.", "Un abonnement pour tout ParentBell."), color = Ink.copy(alpha = .68f))
+                }
+            }
+        }
+        if (onPreview != null) {
+            item {
+                OutlinedButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Explore the app before subscribing", "Découvrez l’appli avant de vous abonner"))
                 }
             }
         }

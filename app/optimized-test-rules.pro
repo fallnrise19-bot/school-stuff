@@ -7,3 +7,10 @@
 # Keep the shared runtime for the test harness; app classes still undergo R8.
 # This is test-only and does not affect release size or optimization metrics.
 -keep class kotlin.** { *; }
+
+# Expose only the test bridge. Calls to real storage/Gson are optimized together
+# inside the tested APK, avoiding cross-APK references to removed/inlined methods.
+-keep class ca.creativepixels.schoolstuff.OptimizedRuntimeProbe {
+    public static void existingSchoolRecordsSurviveOptimizedReadAndWrite(android.content.Context);
+    public static void cachedReceiptAndQueuedWorkerRemainCompatible(android.content.Context);
+}

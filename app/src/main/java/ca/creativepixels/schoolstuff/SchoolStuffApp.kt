@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -185,50 +188,56 @@ fun SchoolStuffApp(
         val subscriptionRequired = BuildConfig.REQUIRE_SUBSCRIPTION && !subscription.active
         BackHandler(enabled = subscriptionPage) { subscriptionPage = false }
 
-        Scaffold(
-            containerColor = Paper,
-            bottomBar = {
-                if (!subscriptionPage && (subscriptionRequired || (childPage == null && !addingThing))) {
-                    NavigationBar(containerColor = Color.White) {
-                        MainTab.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = tab == item,
-                                onClick = { tab = item; childPage = null; addingThing = false },
-                                icon = { Icon(item.icon, contentDescription = null) },
-                                label = { Text(tr(item.english, item.french)) }
-                            )
+        // Keep the window resizable while limiting reading width on tablets and desktops.
+        // The outer background covers the whole window, including system bars.
+        Box(Modifier.fillMaxSize().background(Paper), contentAlignment = Alignment.TopCenter) {
+            Scaffold(
+                modifier = Modifier.widthIn(max = 840.dp).fillMaxSize(),
+                contentWindowInsets = WindowInsets.safeDrawing,
+                containerColor = Paper,
+                bottomBar = {
+                    if (!subscriptionPage && (subscriptionRequired || (childPage == null && !addingThing))) {
+                        NavigationBar(containerColor = Color.White) {
+                            MainTab.entries.forEach { item ->
+                                NavigationBarItem(
+                                    selected = tab == item,
+                                    onClick = { tab = item; childPage = null; addingThing = false },
+                                    icon = { Icon(item.icon, contentDescription = null) },
+                                    label = { Text(tr(item.english, item.french)) }
+                                )
+                            }
                         }
                     }
                 }
-            }
-        ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
-                when {
-                    subscriptionPage -> SubscriptionScreen(
-                        state = subscription,
-                        onSubscribe = onSubscribe,
-                        onRestore = onRestorePurchases,
-                        onManage = onManageSubscription,
-                        onRefresh = onRefreshSubscription,
-                        onBack = { subscriptionPage = false },
-                        onPreview = if (subscriptionRequired) ({
-                            subscriptionPage = false
-                            tab = MainTab.HOME
-                            childPage = null
-                            addingThing = false
-                        }) else null
-                    )
-                    subscriptionRequired && tab != MainTab.SETTINGS -> ParentBellPreviewScreen(
-                        page = tab.name,
-                        onSubscription = { subscriptionPage = true; onRefreshSubscription() }
-                    )
-                    addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
-                    childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })
-                    tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
-                    tab == MainTab.CALENDAR -> CalendarScreen(vm)
-                    tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
-                    else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock, appLanguage, onChangeLanguage,
-                        subscription, onSubscription = { subscriptionPage = true; onRefreshSubscription() })
+            ) { padding ->
+                Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                    when {
+                        subscriptionPage -> SubscriptionScreen(
+                            state = subscription,
+                            onSubscribe = onSubscribe,
+                            onRestore = onRestorePurchases,
+                            onManage = onManageSubscription,
+                            onRefresh = onRefreshSubscription,
+                            onBack = { subscriptionPage = false },
+                            onPreview = if (subscriptionRequired) ({
+                                subscriptionPage = false
+                                tab = MainTab.HOME
+                                childPage = null
+                                addingThing = false
+                            }) else null
+                        )
+                        subscriptionRequired && tab != MainTab.SETTINGS -> ParentBellPreviewScreen(
+                            page = tab.name,
+                            onSubscription = { subscriptionPage = true; onRefreshSubscription() }
+                        )
+                        addingThing -> AddThingScreen(vm, onBack = { addingThing = false })
+                        childPage != null -> ChildScreen(vm, childPage!!, onBack = { childPage = null }, onAddThing = { addingThing = true })
+                        tab == MainTab.HOME -> HomeScreen(vm, onAdd = { addingThing = true }, onChild = { childPage = it })
+                        tab == MainTab.CALENDAR -> CalendarScreen(vm)
+                        tab == MainTab.KIDS -> KidsScreen(vm, onChild = { childPage = it })
+                        else -> SettingsScreen(vm, appLockEnabled, onChangeAppLock, onTestAppLock, appLanguage, onChangeLanguage,
+                            subscription, onSubscription = { subscriptionPage = true; onRefreshSubscription() })
+                    }
                 }
             }
         }

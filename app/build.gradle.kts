@@ -50,8 +50,9 @@ android {
         applicationId = "ca.creativepixels.schoolstuff"
         minSdk = 26
         targetSdk = 36
-        versionCode = 43
-        versionName = "0.1.23"
+        versionCode = 44
+        versionName = "0.1.24"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BILLING_PUBLIC_KEY", "\"$billingPublicKey\"")
         buildConfigField("boolean", "REQUIRE_SUBSCRIPTION", requireSubscription.toString())
     }
@@ -89,7 +90,8 @@ android {
         }
         getByName("release") {
             isDebuggable = false
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (playSigningReady) {
                 signingConfig = signingConfigs.getByName("playRelease")
             }
@@ -98,7 +100,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // Exercise R8 and the real storage/UI on an emulator without a Play upload key.
+        create("optimizedTest") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
+    testBuildType = "optimizedTest"
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 
@@ -126,4 +135,8 @@ dependencies {
     implementation("com.android.billingclient:billing:8.3.0")
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
 }

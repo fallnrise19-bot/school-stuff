@@ -37,7 +37,15 @@ jobs:
       - name: Upload unsigned bundle for secure local signing
         uses: actions/upload-artifact@v4
         with:
-          name: ParentBell-unsigned-play-bundle-build43
+          name: ParentBell-unsigned-play-bundle-build44
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload R8 diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParentBell-build44-R8-diagnostics
+          path: app/build/outputs/mapping/release/
+          if-no-files-found: error
+          retention-days: 90

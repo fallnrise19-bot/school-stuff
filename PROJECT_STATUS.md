@@ -1,6 +1,6 @@
 # ParentBell project status
 
-Current build: 0.1.23 / versionCode 43
+Current build: 0.1.24 / versionCode 44
 
 This repository is configured to build a debug APK automatically on every push to `main` using GitHub Actions.
 
@@ -30,3 +30,5 @@ Build 41 configures ParentBell's public Google Play billing key for purchase ver
 Build 42 enables the existing subscription gate for Home, Calendar, Kids and child/item subpages. Subscription management, language, security and About remain accessible in Settings. This is an internal-validation candidate, not a production approval. No local school-data schema, migration or deletion changes were made.
 
 Build 43 replaces the unpaid Home/Calendar/Kids paywall with an interactive, read-only example family preview. Users can filter example school items, open their details, browse calendar months/dates and open example child profiles. Clearly labelled examples use the app artwork and English/French copy. The preview never receives the real data ViewModel or writes to school storage. Subscription remains required for real family information and changes. Subscription and Settings remain accessible; subscribers continue to use the existing real screens. Device validation is still required before production.
+
+Build 44 enables R8 code optimization and resource shrinking for release builds. Targeted rules preserve the six local JSON models, the signed receipt cache, and the existing reminder worker name so stored school data and queued reminders remain compatible. No storage migration or subscription policy changes are made. Edge-to-edge setup uses AndroidX with safe-drawing insets and inset consumption; the lock screen scrolls in short windows. Portrait-only orientation is removed and the activity is resizable. Compose handles window configuration changes without recreation so in-progress forms and navigation survive rotation/resizing. Content has a maximum reading width of 840dp on large windows. Automated builds and optimized-runtime smoke checks must pass; Play billing and physical-device layout checks remain required before production.
